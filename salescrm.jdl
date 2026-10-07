@@ -1,0 +1,105 @@
+application {
+  config {
+    baseName salesCRM
+    applicationType monolith
+    packageName com.salescrm
+    authenticationType jwt
+    prodDatabaseType postgresql
+    devDatabaseType postgresql
+    buildTool maven
+    reactive true
+    clientFramework no
+    testFrameworks []
+    enableTranslation false
+    nativeLanguage en
+    serverPort 8080
+    cacheProvider no
+  }
+  entities *
+}
+
+enum PlatformType {
+  IG,
+  FB,
+  OTHER
+}
+
+enum LeadStatus {
+  CREATED,
+  CONTACTED,
+  QUALIFIED,
+  CONVERTED,
+  LOST
+}
+
+entity Campaign {
+  externalId String required unique
+  name String required
+  status String
+  createdAt Instant
+  updatedAt Instant
+}
+
+entity AdSet {
+  externalId String required unique
+  name String required
+  status String
+  createdAt Instant
+}
+
+entity Ad {
+  externalId String required unique
+  name String required
+  status String
+  createdAt Instant
+}
+
+entity LeadForm {
+  externalId String required unique
+  name String required
+  status String
+  createdAt Instant
+}
+
+entity Customer {
+  fullName String required
+  phoneNumber String required unique
+  rawPhoneNumber String
+  location String
+  createdAt Instant
+}
+
+entity Lead {
+  externalId String required unique
+  createdTime Instant required
+  isOrganic Boolean required
+  platform PlatformType required
+  status LeadStatus required
+  notes String
+  createdAt Instant
+  updatedAt Instant
+}
+
+entity LeadPreference {
+  mattressType String
+  mattressSize String
+  budgetRange String
+  purchaseTimeline String
+  createdAt Instant
+}
+
+relationship ManyToOne {
+  AdSet{campaign(name)} to Campaign
+  Ad{adSet(name)} to AdSet
+  Lead{customer(fullName)} to Customer
+  Lead{ad(name)} to Ad
+  Lead{leadForm(name)} to LeadForm
+}
+
+relationship OneToOne {
+  LeadPreference{lead(externalId)} to Lead
+}
+
+dto * with mapstruct
+service * with serviceImpl
+paginate Lead, Customer, Campaign, AdSet, Ad, LeadForm with pagination

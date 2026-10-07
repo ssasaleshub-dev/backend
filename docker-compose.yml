@@ -1,0 +1,63 @@
+name: salescrm-platform
+
+services:
+  salescrm-postgres:
+    image: postgres:16-alpine
+    container_name: salescrm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: salesCRM
+      POSTGRES_USER: salesCRM
+      POSTGRES_PASSWORD: salescrm_secret
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salesCRM -d salesCRM"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - salescrm-net
+
+  salescrm-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: salescrm-app
+    restart: unless-stopped
+    depends_on:
+      salescrm-postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_R2DBC_URL: r2dbc:postgresql://salescrm-postgres:5432/salesCRM
+      SPRING_R2DBC_USERNAME: salesCRM
+      SPRING_R2DBC_PASSWORD: salescrm_secret
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://salescrm-postgres:5432/salesCRM
+      SPRING_LIQUIBASE_USER: salesCRM
+      SPRING_LIQUIBASE_PASSWORD: salescrm_secret
+      JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET: fd54a454659368e69d6e53ea04554e296d6f1a54c48bdd39da918a39795da4e0cac91738874fa816d9b7bee52cca7793be663c705081c25c33d24f01141c52d1
+      _JAVA_OPTIONS: "-Xms256m -Xmx512m"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/management/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - salescrm-net
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  salescrm-net:
+    driver: bridge

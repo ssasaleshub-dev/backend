@@ -1,0 +1,41 @@
+{
+  "annotations": {
+    "changelogDate": "20261007165335"
+  },
+  "applications": ["salesCRM"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "mattressType",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "mattressSize",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "budgetRange",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "purchaseTimeline",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "name": "LeadPreference",
+  "relationships": [
+    {
+      "otherEntityField": "externalId",
+      "otherEntityName": "lead",
+      "relationshipName": "lead",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

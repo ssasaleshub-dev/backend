@@ -1,0 +1,11 @@
+.git
+.gitignore
+.editorconfig
+.mvn
+target
+node_modules
+*.log
+.DS_Store
+.idea
+.vscode
+salescrm.jdl

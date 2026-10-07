@@ -1,0 +1,25 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "jwt",
+    "baseName": "salesCRM",
+    "buildTool": "maven",
+    "cacheProvider": "no",
+    "clientFramework": "no",
+    "devDatabaseType": "postgresql",
+    "enableTranslation": false,
+    "entities": ["Campaign", "AdSet", "Ad", "LeadForm", "Customer", "Lead", "LeadPreference"],
+    "jhipsterVersion": "9.0.0",
+    "jwtSecretKey": "M2I4OWUxZGM0YTk2MzQ0ODc4YzNiMjA4NWY1MmFiMDZmYzI5ZjQ0MWZhNTQ2ZTQ2MGQ1ZjcyYjc3ZjFkYjYxYmU1NDE1Njg4YTE1NGZiN2Y4N2M0YTdkZTliMTZkYjNkYjMwNWJhNDUyZDhmYTg5YjY3MDIwYWNmZDQ1MDE2Yjg=",
+    "lastLiquibaseTimestamp": 1791392015000,
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.salescrm",
+    "prodDatabaseType": "postgresql",
+    "reactive": true,
+    "serverPort": "8080",
+    "skipClient": true,
+    "skipCommitHook": true,
+    "testFrameworks": []
+  }
+}

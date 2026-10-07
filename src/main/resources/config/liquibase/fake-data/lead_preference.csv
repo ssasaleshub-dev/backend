@@ -1,0 +1,4 @@
+id;mattress_type;mattress_size;budget_range;purchase_timeline;created_at;lead_id
+1;latex_mattress;queen;₹5,000 – ₹10,000;immediately / within 7 days;2026-10-05T02:24:13;1
+2;latex_mattress;queen;₹10,000 – ₹15,000;immediately / within 7 days;2026-10-05T04:11:38;2
+3;latex_mattress;king;₹15,000 – ₹25,000;immediately / within 7 days;2026-10-05T05:19:22;3
