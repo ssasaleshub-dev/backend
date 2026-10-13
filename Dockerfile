@@ -1,36 +1,20 @@
-# Use OpenJDK 21 as the base image for building
-FROM eclipse-temurin:21
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
-# Set the working directory
 WORKDIR /app
 
-# Copy the Maven wrapper and configuration files first
-COPY target/sales-crm-0.0.1-SNAPSHOT.jar /app/sales-crm-0.0.1-SNAPSHOT.jar
+COPY pom.xml .
+COPY src ./src
+COPY checkstyle.xml .
+COPY sonar-project.properties .
 
-## Ensure the Maven wrapper is executable
-#RUN chmod +x /app/mvnw
+RUN mvn clean package -DskipTests -Pprod
 
-## Copy the rest of the project files
-#COPY pom.xml /app/pom.xml
-#COPY src /app/src
-#
-## Debug: Check if mvnw exists and is executable
-#RUN ls -la /app
+FROM eclipse-temurin:21-jre
 
-## Build the JHipster application (skipping tests)
-#RUN /app/mvnw package -DskipTests
-#
-## Use a minimal OpenJDK 21 runtime for the final image
-#FROM openjdk:21-jdk-slim
-#
-## Set the working directory for the runtime container
-#WORKDIR /app
-#
-## Copy the built JAR file from the build stage
-#COPY --from=build /app/target/*.jar app.jar
+WORKDIR /app
 
-# Expose the application port (default 8080)
+COPY --from=builder /app/target/*.jar app.jar
+
 EXPOSE 8080
 
-# Command to run the application
-ENTRYPOINT ["java", "-jar", "sales-crm-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
