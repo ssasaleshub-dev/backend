@@ -5,7 +5,7 @@ FROM eclipse-temurin:21
 WORKDIR /app
 
 # Copy the Maven wrapper and configuration files first
-COPY target/*.jar /app/app.jar
+COPY target/sales-crm-0.0.1-SNAPSHOT.jar /app/sales-crm-0.0.1-SNAPSHOT.jar
 
 ## Ensure the Maven wrapper is executable
 #RUN chmod +x /app/mvnw
@@ -33,4 +33,4 @@ COPY target/*.jar /app/app.jar
 EXPOSE 8080
 
 # Command to run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "sales-crm-0.0.1-SNAPSHOT.jar"]
