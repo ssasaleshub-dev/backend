@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY pom.xml .
 COPY src ./src
-COPY sonar-project.properties .
 
 RUN mvn clean package -DskipTests -Pprod
 
