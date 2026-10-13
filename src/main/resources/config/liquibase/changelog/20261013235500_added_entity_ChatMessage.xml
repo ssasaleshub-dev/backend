@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!--
+        Added the entity ChatMessage / messages table.
+    -->
+    <changeSet id="20261013235500-1" author="salescrm">
+        <createTable tableName="messages">
+            <column name="id" type="bigint" autoIncrement="true" startWith="1">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="content" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="channel" type="varchar(50)" defaultValue="general">
+                <constraints nullable="true" />
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="messages"
+                                 constraintName="fk_messages__user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"
+                                 onDelete="CASCADE"/>
+
+        <createIndex indexName="idx_messages_user_id" tableName="messages">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex indexName="idx_messages_channel" tableName="messages">
+            <column name="channel"/>
+        </createIndex>
+        <createIndex indexName="idx_messages_created_at" tableName="messages">
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

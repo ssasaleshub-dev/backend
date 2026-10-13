@@ -73,6 +73,14 @@ CREATE TABLE IF NOT EXISTS lead_preference (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS messages (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES jhi_user(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    channel VARCHAR(50) DEFAULT 'general',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
 -- Performance Indices
 CREATE INDEX IF NOT EXISTS idx_adset_campaign_id ON ad_set(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_ad_adset_id ON ad(ad_set_id);
@@ -84,6 +92,9 @@ CREATE INDEX IF NOT EXISTS idx_lead_status ON lead(status);
 CREATE INDEX IF NOT EXISTS idx_lead_platform ON lead(platform);
 CREATE INDEX IF NOT EXISTS idx_customer_phone ON customer(phone_number);
 CREATE INDEX IF NOT EXISTS idx_lead_preference_lead_id ON lead_preference(lead_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 
 -- =============================================================================
 -- Seed Data Transformed from Raw Excel Export

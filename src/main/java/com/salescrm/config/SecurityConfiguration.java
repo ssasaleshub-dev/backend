@@ -79,6 +79,8 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/ad-sets/**").permitAll()
                     .pathMatchers("/api/lead-forms/**").permitAll()
                     .pathMatchers("/api/lead-preferences/**").permitAll()
+                    .pathMatchers("/api/messages/**").permitAll()
+                    .pathMatchers("/api/chat/**").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/**").authenticated()
