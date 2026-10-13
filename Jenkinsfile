@@ -27,7 +27,7 @@ pipeline {
         }
 
         stage('Push to Docker Hub') {
-            steps {
+             steps {
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'ssasaleshub_docker',
