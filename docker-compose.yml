@@ -26,9 +26,6 @@ services:
 
   salescrm-app:
     image: ssasaleshub/backend:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: salescrm-app
     restart: unless-stopped
     depends_on:

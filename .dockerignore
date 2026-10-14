@@ -2,7 +2,8 @@
 .gitignore
 .editorconfig
 .mvn
-target
+target/*
+!target/*.jar
 node_modules
 *.log
 .DS_Store
