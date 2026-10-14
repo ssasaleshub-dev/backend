@@ -1,8 +1,12 @@
+
 pipeline {
     agent any
 
     options {
         disableConcurrentBuilds()
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     triggers {
@@ -10,7 +14,8 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'ssasaleshub/backend:latest'
+        IMAGE_NAME = 'ssasaleshub/backend'
+        DEPLOY_SCRIPT = '/usr/local/bin/deploy-salescrm'
     }
 
     stages {
@@ -20,18 +25,33 @@ pipeline {
             }
         }
 
+        stage('Build JAR') {
+            steps {
+                sh '''
+                    set -eu
+                    chmod +x mvnw
+                    ./mvnw -B clean package
+                    echo "Generated JAR files:"
+                    find target -maxdepth 1 -type f -name "*.jar" -print
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build --no-cache -t $IMAGE_NAME .
-                    docker tag $IMAGE_NAME salescrm-platform-salescrm-app:latest
-                    docker tag $IMAGE_NAME salescrm-platform-salescrm-app
+                    set -eu
+                    test -f Dockerfile
+                    docker build \
+                        -t "$IMAGE_NAME:$BUILD_NUMBER" \
+                        -t "$IMAGE_NAME:latest" \
+                        .
                 '''
             }
         }
 
         stage('Push to Docker Hub') {
-             steps {
+            steps {
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'ssasaleshub_docker',
@@ -41,29 +61,28 @@ pipeline {
                 ]) {
                     sh '''
                         set +x
+                        set -eu
+
                         echo "$DOCKER_TOKEN" | docker login \
-                            -u "$DOCKER_USER" --password-stdin
-                        docker push "$IMAGE_NAME"
+                            --username "$DOCKER_USER" \
+                            --password-stdin
+
+                        docker push "$IMAGE_NAME:$BUILD_NUMBER"
+                        docker push "$IMAGE_NAME:latest"
+
                         docker logout
                     '''
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to Hostinger VPS') {
             steps {
                 sh '''
-                    echo "Checking /usr/local/bin/deploy-salescrm script:"
-                    cat /usr/local/bin/deploy-salescrm || true
+                    set -eu
 
-                    echo "Stopping and removing stale salescrm-app container..."
-                    docker stop salescrm-app 2>/dev/null || true
-                    docker rm salescrm-app 2>/dev/null || true
-                    docker stop salescrm-platform-salescrm-app-1 2>/dev/null || true
-                    docker rm salescrm-platform-salescrm-app-1 2>/dev/null || true
-
-                    echo "Starting fresh deployment..."
-                    sudo /usr/local/bin/deploy-salescrm
+                    test -x "$DEPLOY_SCRIPT"
+                    sudo "$DEPLOY_SCRIPT"
                 '''
             }
         }
@@ -71,10 +90,15 @@ pipeline {
 
     post {
         success {
-            echo 'SalesCRM deployed successfully!'
+            echo 'SalesCRM JAR built, Docker image pushed, and deployment completed.'
         }
+
         failure {
-            echo 'Pipeline failed. Check the stage logs.'
+            echo 'Pipeline failed. Check the failed stage logs.'
+        }
+
+        always {
+            echo 'SalesCRM pipeline finished.'
         }
     }
 }
