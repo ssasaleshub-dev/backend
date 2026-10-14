@@ -22,7 +22,11 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build --no-cache -t $IMAGE_NAME .'
+                sh '''
+                    docker build --no-cache -t $IMAGE_NAME .
+                    docker tag $IMAGE_NAME salescrm-platform-salescrm-app:latest
+                    docker tag $IMAGE_NAME salescrm-platform-salescrm-app
+                '''
             }
         }
 
@@ -48,7 +52,19 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh 'sudo /usr/local/bin/deploy-salescrm'
+                sh '''
+                    echo "Checking /usr/local/bin/deploy-salescrm script:"
+                    cat /usr/local/bin/deploy-salescrm || true
+
+                    echo "Stopping and removing stale salescrm-app container..."
+                    docker stop salescrm-app 2>/dev/null || true
+                    docker rm salescrm-app 2>/dev/null || true
+                    docker stop salescrm-platform-salescrm-app-1 2>/dev/null || true
+                    docker rm salescrm-platform-salescrm-app-1 2>/dev/null || true
+
+                    echo "Starting fresh deployment..."
+                    sudo /usr/local/bin/deploy-salescrm
+                '''
             }
         }
     }
