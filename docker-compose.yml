@@ -25,6 +25,7 @@ services:
       - salescrm-net
 
   salescrm-app:
+    image: ssasaleshub/backend:latest
     build:
       context: .
       dockerfile: Dockerfile
