@@ -20,6 +20,14 @@ public class LeadPreferenceDTO implements Serializable {
 
     private String purchaseTimeline;
 
+    private String visaType;
+    private String age;
+    private String educationalQualification;
+    private String areYouInterested;
+    private String areYouWorking;
+    private String leadConfirm;
+    private String assignedTo;
+
     private Instant createdAt;
 
     private LeadDTO lead;
@@ -62,6 +70,62 @@ public class LeadPreferenceDTO implements Serializable {
 
     public void setPurchaseTimeline(String purchaseTimeline) {
         this.purchaseTimeline = purchaseTimeline;
+    }
+
+    public String getVisaType() {
+        return visaType;
+    }
+
+    public void setVisaType(String visaType) {
+        this.visaType = visaType;
+    }
+
+    public String getAge() {
+        return age;
+    }
+
+    public void setAge(String age) {
+        this.age = age;
+    }
+
+    public String getEducationalQualification() {
+        return educationalQualification;
+    }
+
+    public void setEducationalQualification(String educationalQualification) {
+        this.educationalQualification = educationalQualification;
+    }
+
+    public String getAreYouInterested() {
+        return areYouInterested;
+    }
+
+    public void setAreYouInterested(String areYouInterested) {
+        this.areYouInterested = areYouInterested;
+    }
+
+    public String getAreYouWorking() {
+        return areYouWorking;
+    }
+
+    public void setAreYouWorking(String areYouWorking) {
+        this.areYouWorking = areYouWorking;
+    }
+
+    public String getLeadConfirm() {
+        return leadConfirm;
+    }
+
+    public void setLeadConfirm(String leadConfirm) {
+        this.leadConfirm = leadConfirm;
+    }
+
+    public String getAssignedTo() {
+        return assignedTo;
+    }
+
+    public void setAssignedTo(String assignedTo) {
+        this.assignedTo = assignedTo;
     }
 
     public Instant getCreatedAt() {

@@ -81,13 +81,30 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             dto.setIsOrganic(getValue(values, headerMap, "is_organic"));
             dto.setPlatform(getValue(values, headerMap, "platform"));
 
+            // Legacy mattress fields (backward compatibility)
             dto.setMattressType(getValue(values, headerMap, "what_type_of_mattress_are_you_looking_for?", "mattress_type"));
             dto.setMattressSize(getValue(values, headerMap, "what_mattress_size_do_you_need?", "mattress_size"));
             dto.setPreferredBudget(getValue(values, headerMap, "what_is_your_preferred_budget?", "preferred_budget", "budget"));
             dto.setPlanningToBuy(getValue(values, headerMap, "when_are_you_planning_to_buy?", "planning_to_buy", "timeline"));
-            dto.setLocation(getValue(values, headerMap, "where_are_you_located?", "location", "city"));
 
+            // Visa & Education fields
+            dto.setAge(getValue(values, headerMap, "age"));
+            dto.setEducationalQualification(getValue(values, headerMap, "educational_qualification", "education", "qualification"));
+            dto.setAreYouInterested(getValue(values, headerMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
+            dto.setAreYouWorking(getValue(values, headerMap, "are_you_currently_working", "are_you_working"));
+            dto.setLeadConfirm(getValue(values, headerMap, "lead_confirm", "lead confirm", "confirm"));
+
+            // City / Location
+            String cityVal = getValue(values, headerMap, "city", "where_are_you_located?", "location");
+            dto.setCity(cityVal);
+            dto.setLocation(cityVal);
+
+            // Infer Visa Type from campaign / ad / form name
+            dto.setVisaType(inferVisaType(dto.getCampaignName(), dto.getAdName(), dto.getFormName(), dto.getAdsetName()));
+
+            // Customer contacts
             dto.setFullName(getValue(values, headerMap, "full_name", "name"));
+            dto.setEmail(getValue(values, headerMap, "email"));
             dto.setPhoneNumber(getValue(values, headerMap, "phone_number", "phone"));
             dto.setLeadStatus(getValue(values, headerMap, "lead_status", "status"));
 
@@ -136,5 +153,20 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
         }
         tokens.add(sb.toString());
         return tokens;
+    }
+
+    private String inferVisaType(String... sources) {
+        for (String s : sources) {
+            if (s != null) {
+                String lower = s.toLowerCase();
+                if (lower.contains("work")) {
+                    return "WORK_VISA";
+                }
+                if (lower.contains("study") || lower.contains("student")) {
+                    return "STUDY_VISA";
+                }
+            }
+        }
+        return "WORK_VISA";
     }
 }

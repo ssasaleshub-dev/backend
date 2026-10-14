@@ -33,6 +33,27 @@ public class LeadPreference implements Serializable {
     @Column("purchase_timeline")
     private String purchaseTimeline;
 
+    @Column("visa_type")
+    private String visaType;
+
+    @Column("age")
+    private String age;
+
+    @Column("educational_qualification")
+    private String educationalQualification;
+
+    @Column("are_you_interested")
+    private String areYouInterested;
+
+    @Column("are_you_working")
+    private String areYouWorking;
+
+    @Column("lead_confirm")
+    private String leadConfirm;
+
+    @Column("assigned_to")
+    private String assignedTo;
+
     @Column("created_at")
     private Instant createdAt;
 
@@ -107,6 +128,97 @@ public class LeadPreference implements Serializable {
 
     public void setPurchaseTimeline(String purchaseTimeline) {
         this.purchaseTimeline = purchaseTimeline;
+    }
+
+    public String getVisaType() {
+        return this.visaType;
+    }
+
+    public LeadPreference visaType(String visaType) {
+        this.setVisaType(visaType);
+        return this;
+    }
+
+    public void setVisaType(String visaType) {
+        this.visaType = visaType;
+    }
+
+    public String getAge() {
+        return this.age;
+    }
+
+    public LeadPreference age(String age) {
+        this.setAge(age);
+        return this;
+    }
+
+    public void setAge(String age) {
+        this.age = age;
+    }
+
+    public String getEducationalQualification() {
+        return this.educationalQualification;
+    }
+
+    public LeadPreference educationalQualification(String educationalQualification) {
+        this.setEducationalQualification(educationalQualification);
+        return this;
+    }
+
+    public void setEducationalQualification(String educationalQualification) {
+        this.educationalQualification = educationalQualification;
+    }
+
+    public String getAreYouInterested() {
+        return this.areYouInterested;
+    }
+
+    public LeadPreference areYouInterested(String areYouInterested) {
+        this.setAreYouInterested(areYouInterested);
+        return this;
+    }
+
+    public void setAreYouInterested(String areYouInterested) {
+        this.areYouInterested = areYouInterested;
+    }
+
+    public String getAreYouWorking() {
+        return this.areYouWorking;
+    }
+
+    public LeadPreference areYouWorking(String areYouWorking) {
+        this.setAreYouWorking(areYouWorking);
+        return this;
+    }
+
+    public void setAreYouWorking(String areYouWorking) {
+        this.areYouWorking = areYouWorking;
+    }
+
+    public String getLeadConfirm() {
+        return this.leadConfirm;
+    }
+
+    public LeadPreference leadConfirm(String leadConfirm) {
+        this.setLeadConfirm(leadConfirm);
+        return this;
+    }
+
+    public void setLeadConfirm(String leadConfirm) {
+        this.leadConfirm = leadConfirm;
+    }
+
+    public String getAssignedTo() {
+        return this.assignedTo;
+    }
+
+    public LeadPreference assignedTo(String assignedTo) {
+        this.setAssignedTo(assignedTo);
+        return this;
+    }
+
+    public void setAssignedTo(String assignedTo) {
+        this.assignedTo = assignedTo;
     }
 
     public Instant getCreatedAt() {

@@ -15,6 +15,7 @@ public class CustomerSqlHelper {
         columns.add(Column.aliased("phone_number", table, columnPrefix + "_phone_number"));
         columns.add(Column.aliased("raw_phone_number", table, columnPrefix + "_raw_phone_number"));
         columns.add(Column.aliased("location", table, columnPrefix + "_location"));
+        columns.add(Column.aliased("email", table, columnPrefix + "_email"));
         columns.add(Column.aliased("created_at", table, columnPrefix + "_created_at"));
 
         return columns;

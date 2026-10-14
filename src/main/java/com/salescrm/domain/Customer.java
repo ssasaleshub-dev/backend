@@ -36,6 +36,9 @@ public class Customer implements Serializable {
     @Column("location")
     private String location;
 
+    @Column("email")
+    private String email;
+
     @Column("created_at")
     private Instant createdAt;
 
@@ -104,6 +107,19 @@ public class Customer implements Serializable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public Customer email(String email) {
+        this.setEmail(email);
+        return this;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public Instant getCreatedAt() {

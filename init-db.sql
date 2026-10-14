@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS customer (
     full_name VARCHAR(255) NOT NULL,
     phone_number VARCHAR(50) NOT NULL UNIQUE,
     raw_phone_number VARCHAR(50),
+    email VARCHAR(255),
     location VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -66,12 +67,29 @@ CREATE TABLE IF NOT EXISTS lead (
 CREATE TABLE IF NOT EXISTS lead_preference (
     id BIGSERIAL PRIMARY KEY,
     lead_id BIGINT NOT NULL UNIQUE REFERENCES lead(id) ON DELETE CASCADE,
+    visa_type VARCHAR(50) DEFAULT 'WORK_VISA',
+    age VARCHAR(50),
+    educational_qualification VARCHAR(255),
+    are_you_interested VARCHAR(50),
+    are_you_working VARCHAR(50),
+    lead_confirm VARCHAR(50),
+    assigned_to VARCHAR(100),
     mattress_type VARCHAR(100),
     mattress_size VARCHAR(50),
     budget_range VARCHAR(100),
     purchase_timeline VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migrations for existing deployments
+ALTER TABLE customer ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS visa_type VARCHAR(50);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS age VARCHAR(50);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS educational_qualification VARCHAR(255);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS are_you_interested VARCHAR(50);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS are_you_working VARCHAR(50);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS lead_confirm VARCHAR(50);
+ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(100);
 
 CREATE TABLE IF NOT EXISTS messages (
     id BIGSERIAL PRIMARY KEY,

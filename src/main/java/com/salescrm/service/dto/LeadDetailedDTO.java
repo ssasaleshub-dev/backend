@@ -43,8 +43,19 @@ public class LeadDetailedDTO implements Serializable {
     private Long leadFormId;
     private String leadFormName;
 
-    // Resolved Product / Survey Requirements
+    // Resolved Visa / Candidate Requirements
     private Long preferenceId;
+    private String visaType;
+    private String age;
+    private String educationalQualification;
+    private String areYouInterested;
+    private String areYouWorking;
+    private String email;
+    private String city;
+    private String leadConfirm;
+    private String assignedTo;
+
+    // Legacy / Survey fields
     private String mattressType;
     private String mattressSize;
     private String budgetRange;
@@ -266,5 +277,77 @@ public class LeadDetailedDTO implements Serializable {
 
     public void setPurchaseTimeline(String purchaseTimeline) {
         this.purchaseTimeline = purchaseTimeline;
+    }
+
+    public String getVisaType() {
+        return visaType;
+    }
+
+    public void setVisaType(String visaType) {
+        this.visaType = visaType;
+    }
+
+    public String getAge() {
+        return age;
+    }
+
+    public void setAge(String age) {
+        this.age = age;
+    }
+
+    public String getEducationalQualification() {
+        return educationalQualification;
+    }
+
+    public void setEducationalQualification(String educationalQualification) {
+        this.educationalQualification = educationalQualification;
+    }
+
+    public String getAreYouInterested() {
+        return areYouInterested;
+    }
+
+    public void setAreYouInterested(String areYouInterested) {
+        this.areYouInterested = areYouInterested;
+    }
+
+    public String getAreYouWorking() {
+        return areYouWorking;
+    }
+
+    public void setAreYouWorking(String areYouWorking) {
+        this.areYouWorking = areYouWorking;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getLeadConfirm() {
+        return leadConfirm;
+    }
+
+    public void setLeadConfirm(String leadConfirm) {
+        this.leadConfirm = leadConfirm;
+    }
+
+    public String getAssignedTo() {
+        return assignedTo;
+    }
+
+    public void setAssignedTo(String assignedTo) {
+        this.assignedTo = assignedTo;
     }
 }

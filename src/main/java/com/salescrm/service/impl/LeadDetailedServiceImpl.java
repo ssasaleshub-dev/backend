@@ -78,6 +78,8 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
             dto.setCustomerName(c.getFullName());
             dto.setPhoneNumber(c.getPhoneNumber());
             dto.setLocation(c.getLocation());
+            dto.setCity(c.getLocation());
+            dto.setEmail(c.getEmail());
         }
 
         if (lead.getLeadForm() != null) {
@@ -116,6 +118,15 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
         Mono<Void> prefMono = preferenceRepository.findOneByLeadId(lead.getId())
             .doOnNext(p -> {
                 dto.setPreferenceId(p.getId());
+                dto.setVisaType(p.getVisaType());
+                dto.setAge(p.getAge());
+                dto.setEducationalQualification(p.getEducationalQualification());
+                dto.setAreYouInterested(p.getAreYouInterested());
+                dto.setAreYouWorking(p.getAreYouWorking());
+                dto.setLeadConfirm(p.getLeadConfirm());
+                dto.setAssignedTo(p.getAssignedTo());
+
+                // Legacy fallback
                 dto.setMattressType(p.getMattressType());
                 dto.setMattressSize(p.getMattressSize());
                 dto.setBudgetRange(p.getBudgetRange());

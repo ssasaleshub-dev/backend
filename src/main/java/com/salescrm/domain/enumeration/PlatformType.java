@@ -6,5 +6,6 @@ package com.salescrm.domain.enumeration;
 public enum PlatformType {
     IG,
     FB,
+    WHATSAPP,
     OTHER,
 }

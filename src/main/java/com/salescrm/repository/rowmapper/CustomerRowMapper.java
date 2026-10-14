@@ -30,6 +30,7 @@ public class CustomerRowMapper implements BiFunction<Row, String, Customer> {
         entity.setPhoneNumber(converter.fromRow(row, prefix + "_phone_number", String.class));
         entity.setRawPhoneNumber(converter.fromRow(row, prefix + "_raw_phone_number", String.class));
         entity.setLocation(converter.fromRow(row, prefix + "_location", String.class));
+        entity.setEmail(converter.fromRow(row, prefix + "_email", String.class));
         entity.setCreatedAt(converter.fromRow(row, prefix + "_created_at", Instant.class));
         return entity;
     }

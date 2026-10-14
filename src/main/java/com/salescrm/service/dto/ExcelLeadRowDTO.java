@@ -38,9 +38,20 @@ public class ExcelLeadRowDTO implements Serializable {
     private String planningToBuy;
     private String location;
 
+    // Visa & Education details from Meta Ads Form
+    private String visaType;
+    private String age;
+    private String educationalQualification;
+    private String areYouInterested;
+    private String areYouWorking;
+    private String city;
+    private String leadConfirm;
+
     // Contact info
     @NotBlank(message = "Customer full name cannot be empty")
     private String fullName;
+
+    private String email;
 
     @NotBlank(message = "Phone number cannot be empty")
     private String phoneNumber;
@@ -215,6 +226,70 @@ public class ExcelLeadRowDTO implements Serializable {
 
     public void setLeadStatus(String leadStatus) {
         this.leadStatus = leadStatus;
+    }
+
+    public String getVisaType() {
+        return visaType;
+    }
+
+    public void setVisaType(String visaType) {
+        this.visaType = visaType;
+    }
+
+    public String getAge() {
+        return age;
+    }
+
+    public void setAge(String age) {
+        this.age = age;
+    }
+
+    public String getEducationalQualification() {
+        return educationalQualification;
+    }
+
+    public void setEducationalQualification(String educationalQualification) {
+        this.educationalQualification = educationalQualification;
+    }
+
+    public String getAreYouInterested() {
+        return areYouInterested;
+    }
+
+    public void setAreYouInterested(String areYouInterested) {
+        this.areYouInterested = areYouInterested;
+    }
+
+    public String getAreYouWorking() {
+        return areYouWorking;
+    }
+
+    public void setAreYouWorking(String areYouWorking) {
+        this.areYouWorking = areYouWorking;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getLeadConfirm() {
+        return leadConfirm;
+    }
+
+    public void setLeadConfirm(String leadConfirm) {
+        this.leadConfirm = leadConfirm;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     @Override

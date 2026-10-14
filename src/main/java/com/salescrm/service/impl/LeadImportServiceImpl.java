@@ -201,6 +201,10 @@ public class LeadImportServiceImpl implements LeadImportService {
                     existing.setLocation(row.getLocation());
                     changed = true;
                 }
+                if ((existing.getEmail() == null || existing.getEmail().isBlank()) && row.getEmail() != null) {
+                    existing.setEmail(row.getEmail());
+                    changed = true;
+                }
                 return changed ? customerRepository.save(existing) : Mono.just(existing);
             })
             .switchIfEmpty(Mono.defer(() -> {
@@ -209,6 +213,7 @@ public class LeadImportServiceImpl implements LeadImportService {
                 newCustomer.setPhoneNumber(normalizedPhone);
                 newCustomer.setRawPhoneNumber(row.getPhoneNumber());
                 newCustomer.setLocation(row.getLocation());
+                newCustomer.setEmail(row.getEmail());
                 newCustomer.setCreatedAt(createdTime);
                 return customerRepository.save(newCustomer);
             }));
@@ -341,6 +346,14 @@ public class LeadImportServiceImpl implements LeadImportService {
 
         return leadPreferenceRepository.findOneByLeadId(lead.getId())
             .flatMap(existing -> {
+                existing.setVisaType(row.getVisaType());
+                existing.setAge(row.getAge());
+                existing.setEducationalQualification(row.getEducationalQualification());
+                existing.setAreYouInterested(row.getAreYouInterested());
+                existing.setAreYouWorking(row.getAreYouWorking());
+                existing.setLeadConfirm(row.getLeadConfirm());
+
+                // Legacy fields
                 existing.setMattressType(row.getMattressType());
                 existing.setMattressSize(row.getMattressSize());
                 existing.setBudgetRange(row.getPreferredBudget());
@@ -350,6 +363,14 @@ public class LeadImportServiceImpl implements LeadImportService {
             .switchIfEmpty(Mono.defer(() -> {
                 LeadPreference pref = new LeadPreference();
                 pref.setLead(lead);
+                pref.setVisaType(row.getVisaType());
+                pref.setAge(row.getAge());
+                pref.setEducationalQualification(row.getEducationalQualification());
+                pref.setAreYouInterested(row.getAreYouInterested());
+                pref.setAreYouWorking(row.getAreYouWorking());
+                pref.setLeadConfirm(row.getLeadConfirm());
+
+                // Legacy fields
                 pref.setMattressType(row.getMattressType());
                 pref.setMattressSize(row.getMattressSize());
                 pref.setBudgetRange(row.getPreferredBudget());
@@ -369,6 +390,9 @@ public class LeadImportServiceImpl implements LeadImportService {
         }
         if (p.contains("fb") || p.contains("facebook")) {
             return PlatformType.FB;
+        }
+        if (p.contains("whatsapp") || p.contains("wa")) {
+            return PlatformType.WHATSAPP;
         }
         return PlatformType.OTHER;
     }

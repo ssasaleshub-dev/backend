@@ -15,6 +15,13 @@ public class LeadPreferenceSqlHelper {
         columns.add(Column.aliased("mattress_size", table, columnPrefix + "_mattress_size"));
         columns.add(Column.aliased("budget_range", table, columnPrefix + "_budget_range"));
         columns.add(Column.aliased("purchase_timeline", table, columnPrefix + "_purchase_timeline"));
+        columns.add(Column.aliased("visa_type", table, columnPrefix + "_visa_type"));
+        columns.add(Column.aliased("age", table, columnPrefix + "_age"));
+        columns.add(Column.aliased("educational_qualification", table, columnPrefix + "_educational_qualification"));
+        columns.add(Column.aliased("are_you_interested", table, columnPrefix + "_are_you_interested"));
+        columns.add(Column.aliased("are_you_working", table, columnPrefix + "_are_you_working"));
+        columns.add(Column.aliased("lead_confirm", table, columnPrefix + "_lead_confirm"));
+        columns.add(Column.aliased("assigned_to", table, columnPrefix + "_assigned_to"));
         columns.add(Column.aliased("created_at", table, columnPrefix + "_created_at"));
 
         columns.add(Column.aliased("lead_id", table, columnPrefix + "_lead_id"));

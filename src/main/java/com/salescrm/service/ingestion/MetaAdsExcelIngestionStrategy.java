@@ -78,15 +78,30 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 dto.setIsOrganic(getCellValue(row, headerMap, "is_organic"));
                 dto.setPlatform(getCellValue(row, headerMap, "platform"));
 
-                // Dynamic survey questions matching variations
+                // Dynamic survey questions matching variations (legacy fallback)
                 dto.setMattressType(getCellValue(row, headerMap, "what_type_of_mattress_are_you_looking_for?", "mattress_type"));
                 dto.setMattressSize(getCellValue(row, headerMap, "what_mattress_size_do_you_need?", "mattress_size"));
                 dto.setPreferredBudget(getCellValue(row, headerMap, "what_is_your_preferred_budget?", "preferred_budget", "budget"));
                 dto.setPlanningToBuy(getCellValue(row, headerMap, "when_are_you_planning_to_buy?", "planning_to_buy", "timeline"));
-                dto.setLocation(getCellValue(row, headerMap, "where_are_you_located?", "location", "city"));
+
+                // Visa & Education fields
+                dto.setAge(getCellValue(row, headerMap, "age"));
+                dto.setEducationalQualification(getCellValue(row, headerMap, "educational_qualification", "education", "qualification"));
+                dto.setAreYouInterested(getCellValue(row, headerMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
+                dto.setAreYouWorking(getCellValue(row, headerMap, "are_you_currently_working", "are_you_working"));
+                dto.setLeadConfirm(getCellValue(row, headerMap, "lead_confirm", "lead confirm", "confirm"));
+
+                // City / Location
+                String cityVal = getCellValue(row, headerMap, "city", "where_are_you_located?", "location");
+                dto.setCity(cityVal);
+                dto.setLocation(cityVal);
+
+                // Infer Visa Type from campaign / ad / form name
+                dto.setVisaType(inferVisaType(dto.getCampaignName(), dto.getAdName(), dto.getFormName(), dto.getAdsetName()));
 
                 // Customer contacts
                 dto.setFullName(getCellValue(row, headerMap, "full_name", "name"));
+                dto.setEmail(getCellValue(row, headerMap, "email"));
                 dto.setPhoneNumber(getCellValue(row, headerMap, "phone_number", "phone"));
                 dto.setLeadStatus(getCellValue(row, headerMap, "lead_status", "status"));
 
@@ -129,5 +144,20 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
             }
         }
         return true;
+    }
+
+    private String inferVisaType(String... sources) {
+        for (String s : sources) {
+            if (s != null) {
+                String lower = s.toLowerCase();
+                if (lower.contains("work")) {
+                    return "WORK_VISA";
+                }
+                if (lower.contains("study") || lower.contains("student")) {
+                    return "STUDY_VISA";
+                }
+            }
+        }
+        return "WORK_VISA";
     }
 }
