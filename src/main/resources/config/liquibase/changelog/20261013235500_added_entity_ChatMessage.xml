@@ -10,6 +10,11 @@
         Added the entity ChatMessage / messages table.
     -->
     <changeSet id="20261013235500-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="messages"/>
+            </not>
+        </preConditions>
         <createTable tableName="messages">
             <column name="id" type="bigint" autoIncrement="true" startWith="1">
                 <constraints primaryKey="true" nullable="false"/>
