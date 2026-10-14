@@ -28,4 +28,5 @@
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <include file="config/liquibase/changelog/20261007230000_seed_excel_leads_with_relationships.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+    <include file="config/liquibase/changelog/20261015010000_added_visa_columns.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!--
+        Add email column to customer table if not exists.
+    -->
+    <changeSet id="20261015010000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="customer" columnName="email"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="customer">
+            <column name="email" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add visa_type column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="visa_type"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="visa_type" type="varchar(50)" defaultValue="WORK_VISA">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add age column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-3" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="age"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="age" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add educational_qualification column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-4" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="educational_qualification"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="educational_qualification" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add are_you_interested column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-5" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="are_you_interested"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="are_you_interested" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add are_you_working column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-6" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="are_you_working"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="are_you_working" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add lead_confirm column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-7" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="lead_confirm"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="lead_confirm" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Add assigned_to column to lead_preference table if not exists.
+    -->
+    <changeSet id="20261015010000-8" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead_preference" columnName="assigned_to"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead_preference">
+            <column name="assigned_to" type="varchar(100)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
