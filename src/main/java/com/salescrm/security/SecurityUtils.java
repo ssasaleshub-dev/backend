@@ -122,4 +122,19 @@ public final class SecurityUtils {
     public static Mono<Boolean> hasCurrentUserThisAuthority(String authority) {
         return hasCurrentUserAnyOfAuthorities(authority);
     }
+
+    /**
+     * Get the set of authorities of the current user.
+     *
+     * @return Mono of Set of authority strings.
+     */
+    public static Mono<java.util.Set<String>> getCurrentUserAuthorities() {
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .map(Authentication::getAuthorities)
+            .map(authorities -> authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(java.util.stream.Collectors.toSet()))
+            .defaultIfEmpty(java.util.Collections.emptySet());
+    }
 }

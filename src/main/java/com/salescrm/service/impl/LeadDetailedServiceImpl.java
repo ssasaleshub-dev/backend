@@ -5,14 +5,20 @@ import com.salescrm.domain.enumeration.LeadStatus;
 import com.salescrm.repository.*;
 import com.salescrm.service.LeadDetailedService;
 import com.salescrm.service.dto.LeadDetailedDTO;
+import com.salescrm.security.AuthoritiesConstants;
+import com.salescrm.security.SecurityUtils;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Service implementation enriching Leads with their complete relational hierarchy.
+ * Service implementation enriching Leads with their complete relational hierarchy
+ * and enforcing role-based visibility for staff (Work Visa, Study Visa, Other Visa).
  */
 @Service
 public class LeadDetailedServiceImpl implements LeadDetailedService {
@@ -36,29 +42,156 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
 
     @Override
     public Flux<LeadDetailedDTO> findAllDetailed() {
-        return leadRepository.findAll()
-            .concatMap(this::enrichLead);
+        return findAllDetailed(null);
+    }
+
+    @Override
+    public Flux<LeadDetailedDTO> findAllDetailed(String visaTypeFilter) {
+        return getAccessScope()
+            .flatMapMany(scope -> leadRepository.findAll()
+                .flatMap(this::enrichLead)
+                .filter(lead -> scope.isLeadVisible(lead, visaTypeFilter))
+                .sort((a, b) -> {
+                    if (a.getCreatedTime() == null && b.getCreatedTime() == null) return 0;
+                    if (a.getCreatedTime() == null) return 1;
+                    if (b.getCreatedTime() == null) return -1;
+                    return b.getCreatedTime().compareTo(a.getCreatedTime());
+                })
+            );
     }
 
     @Override
     public Mono<LeadDetailedDTO> findDetailedById(Long id) {
-        return leadRepository.findById(id)
-            .flatMap(this::enrichLead);
+        return getAccessScope()
+            .flatMap(scope -> leadRepository.findById(id)
+                .flatMap(this::enrichLead)
+                .filter(lead -> scope.isLeadVisible(lead, null))
+            );
     }
 
     @Override
     @Transactional
     public Mono<LeadDetailedDTO> updateStatus(Long id, LeadStatus status, String notes) {
+        return getAccessScope()
+            .flatMap(scope -> leadRepository.findById(id)
+                .flatMap(this::enrichLead)
+                .flatMap(enriched -> {
+                    if (!scope.isLeadVisible(enriched, null)) {
+                        return Mono.error(new AccessDeniedException("Unauthorized to modify this lead"));
+                    }
+                    return leadRepository.findById(id)
+                        .flatMap(lead -> {
+                            lead.setStatus(status);
+                            lead.setUpdatedAt(Instant.now());
+                            if (notes != null && !notes.isBlank()) {
+                                lead.setNotes(notes);
+                            }
+                            return leadRepository.save(lead);
+                        })
+                        .flatMap(this::enrichLead);
+                })
+            );
+    }
+
+    @Override
+    @Transactional
+    public Mono<LeadDetailedDTO> updateAssignment(Long id, String assignedTo) {
         return leadRepository.findById(id)
-            .flatMap(lead -> {
-                lead.setStatus(status);
-                lead.setUpdatedAt(Instant.now());
-                if (notes != null && !notes.isBlank()) {
-                    lead.setNotes(notes);
+            .flatMap(lead -> preferenceRepository.findOneByLeadId(id)
+                .switchIfEmpty(
+                    Mono.defer(() -> {
+                        LeadPreference newPref = new LeadPreference();
+                        newPref.setLeadId(id);
+                        newPref.setCreatedAt(Instant.now());
+                        return Mono.just(newPref);
+                    })
+                )
+                .flatMap(pref -> {
+                    pref.setAssignedTo(assignedTo);
+                    return preferenceRepository.save(pref);
+                })
+                .then(findDetailedById(id))
+            );
+    }
+
+    private Mono<LeadAccessScope> getAccessScope() {
+        return Mono.zip(
+            SecurityUtils.getCurrentUserLogin().defaultIfEmpty(""),
+            SecurityUtils.getCurrentUserAuthorities()
+        ).map(tuple -> new LeadAccessScope(tuple.getT1(), tuple.getT2()));
+    }
+
+    /**
+     * Determines visibility of leads based on user authorities.
+     */
+    private static class LeadAccessScope {
+        final String login;
+        final Set<String> authorities;
+        final boolean isAdmin;
+        final boolean isWorkVisa;
+        final boolean isStudyVisa;
+        final boolean isOtherVisa;
+
+        LeadAccessScope(String login, Set<String> authorities) {
+            this.login = login;
+            this.authorities = authorities != null ? authorities : Collections.emptySet();
+            this.isAdmin = this.authorities.contains(AuthoritiesConstants.ADMIN);
+            this.isWorkVisa = this.authorities.contains(AuthoritiesConstants.WORK_VISA);
+            this.isStudyVisa = this.authorities.contains(AuthoritiesConstants.STUDY_VISA);
+            this.isOtherVisa = this.authorities.contains(AuthoritiesConstants.OTHER_VISA) ||
+                               this.authorities.contains(AuthoritiesConstants.VISITOR_VISA);
+        }
+
+        boolean isLeadVisible(LeadDetailedDTO lead, String requestedVisaType) {
+            // Admin has full visibility, respects optional query filter
+            if (isAdmin) {
+                if (requestedVisaType != null && !requestedVisaType.isBlank() && !"ALL".equalsIgnoreCase(requestedVisaType)) {
+                    return matchesVisaType(lead.getVisaType(), requestedVisaType);
                 }
-                return leadRepository.save(lead);
-            })
-            .flatMap(this::enrichLead);
+                return true;
+            }
+
+            // Lead assigned directly to this user
+            if (login != null && !login.isBlank() && login.equalsIgnoreCase(lead.getAssignedTo())) {
+                return true;
+            }
+
+            // Staff 1: Work Visa
+            if (isWorkVisa) {
+                return matchesVisaType(lead.getVisaType(), "WORK_VISA");
+            }
+
+            // Staff 2: Study Visa
+            if (isStudyVisa) {
+                return matchesVisaType(lead.getVisaType(), "STUDY_VISA");
+            }
+
+            // Staff 3: Other / Visitor Visa
+            if (isOtherVisa) {
+                String vt = lead.getVisaType();
+                if (vt == null || vt.isBlank()) return true;
+                return !matchesVisaType(vt, "WORK_VISA") && !matchesVisaType(vt, "STUDY_VISA");
+            }
+
+            // Fallback for unauthenticated dev calls
+            if (requestedVisaType != null && !requestedVisaType.isBlank() && !"ALL".equalsIgnoreCase(requestedVisaType)) {
+                return matchesVisaType(lead.getVisaType(), requestedVisaType);
+            }
+            return true;
+        }
+
+        private boolean matchesVisaType(String actual, String target) {
+            if (actual == null || target == null) return false;
+            String a = actual.trim().toUpperCase();
+            String t = target.trim().toUpperCase();
+            if (a.equals(t)) return true;
+            if (t.contains("WORK") && a.contains("WORK")) return true;
+            if (t.contains("STUDY") && (a.contains("STUDY") || a.contains("STUDENT"))) return true;
+            if (t.contains("OTHER") || t.contains("VISITOR")) {
+                return a.contains("OTHER") || a.contains("VISITOR") || a.contains("TOURIST");
+            }
+            return false;
+        }
     }
 
     private Mono<LeadDetailedDTO> enrichLead(Lead lead) {

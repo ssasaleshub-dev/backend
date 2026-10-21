@@ -630,6 +630,31 @@
             color: var(--accent-emerald);
         }
 
+        .badge-visa {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .visa-work {
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+        .visa-study {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .visa-other {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
         /* Status Select */
         .status-select {
             background: var(--bg-elevated);
@@ -763,6 +788,15 @@
                 </div>
             </div>
             <div class="header-actions">
+                <div class="user-role-badge" id="current-user-badge" style="display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:12px;">
+                    <span>🛡️ Role:</span>
+                    <select id="role-select" onchange="switchRole(this.value)" style="background:transparent; color:var(--text-primary); border:none; outline:none; font-family:inherit; font-weight:700; cursor:pointer;">
+                        <option value="admin" style="background:var(--bg-surface); color:#fff;">Admin (All Leads)</option>
+                        <option value="work_staff" style="background:var(--bg-surface); color:#fff;">Work Visa Staff</option>
+                        <option value="study_staff" style="background:var(--bg-surface); color:#fff;">Study Visa Staff</option>
+                        <option value="other_staff" style="background:var(--bg-surface); color:#fff;">Other Visa Staff</option>
+                    </select>
+                </div>
                 <button class="btn btn-secondary" id="btn-seed" onclick="triggerSampleSeed()">
                     <span>📥</span> Ingest Seed Excel
                 </button>
@@ -922,7 +956,10 @@
                 </div>
 
                 <div class="filter-pills">
-                    <button class="filter-btn active" onclick="setFilter('ALL', this)">All Leads</button>
+                    <button class="filter-btn active" onclick="setFilter('ALL', this)">All</button>
+                    <button class="filter-btn" onclick="setFilter('WORK_VISA', this)">💼 Work Visa</button>
+                    <button class="filter-btn" onclick="setFilter('STUDY_VISA', this)">🎓 Study Visa</button>
+                    <button class="filter-btn" onclick="setFilter('OTHER_VISA', this)">🌐 Other Visa</button>
                     <button class="filter-btn" onclick="setFilter('IG', this)">Instagram</button>
                     <button class="filter-btn" onclick="setFilter('FB', this)">Facebook</button>
                     <button class="filter-btn" onclick="setFilter('CREATED', this)">Created</button>
@@ -980,11 +1017,54 @@
     <script>
         let allLeads = [];
         let currentFilter = 'ALL';
+        let authToken = localStorage.getItem('salescrm_jwt') || '';
 
         document.addEventListener('DOMContentLoaded', () => {
             setupDropzone();
             refreshDashboard();
         });
+
+        function getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) {
+                headers['Authorization'] = 'Bearer ' + authToken;
+            }
+            return headers;
+        }
+
+        async function switchRole(userLogin) {
+            try {
+                if (userLogin === 'admin') {
+                    // Admin login
+                    const res = await fetch('/api/authenticate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: 'admin', password: 'admin', rememberMe: true })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        authToken = data.id_token;
+                        localStorage.setItem('salescrm_jwt', authToken);
+                    }
+                } else {
+                    // Staff user login
+                    const res = await fetch('/api/authenticate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: userLogin, password: 'admin', rememberMe: true })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        authToken = data.id_token;
+                        localStorage.setItem('salescrm_jwt', authToken);
+                    }
+                }
+                refreshDashboard();
+            } catch (err) {
+                console.error("Failed to switch role:", err);
+                refreshDashboard();
+            }
+        }
 
         async function refreshDashboard() {
             await Promise.all([loadAnalytics(), loadLeads()]);
@@ -993,7 +1073,7 @@
 
         async function loadAnalytics() {
             try {
-                const res = await fetch('/api/leads/analytics');
+                const res = await fetch('/api/leads/analytics', { headers: getAuthHeaders() });
                 if (!res.ok) return;
                 const data = await res.json();
 
@@ -1007,7 +1087,7 @@
 
                 document.getElementById('kpi-entities-count').textContent = `${data.totalCampaigns || 0} / ${data.totalAds || 0}`;
 
-                renderBars('bars-size', data.leadsByMattressSize, 'cyan');
+                renderBars('bars-size', data.leadsByVisaType && Object.keys(data.leadsByVisaType).length ? data.leadsByVisaType : data.leadsByMattressSize, 'cyan');
                 renderBars('bars-budget', data.leadsByBudget, 'emerald');
                 renderBars('bars-location', data.leadsByLocation, 'amber');
             } catch (err) {
@@ -1046,7 +1126,7 @@
 
         async function loadLeads() {
             try {
-                const res = await fetch('/api/leads/detailed');
+                const res = await fetch('/api/leads/detailed', { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 allLeads = await res.json();
                 renderTable();
@@ -1065,9 +1145,15 @@
             const search = document.getElementById('search-input').value.toLowerCase().trim();
 
             const filtered = allLeads.filter(lead => {
-                // Channel or Status filter
+                // Visa or Channel or Status filter
                 if (currentFilter !== 'ALL') {
-                    if (currentFilter === 'IG' || currentFilter === 'FB') {
+                    if (currentFilter === 'WORK_VISA' || currentFilter === 'STUDY_VISA' || currentFilter === 'OTHER_VISA') {
+                        if (currentFilter === 'OTHER_VISA') {
+                            if (lead.visaType === 'WORK_VISA' || lead.visaType === 'STUDY_VISA') return false;
+                        } else {
+                            if (lead.visaType !== currentFilter) return false;
+                        }
+                    } else if (currentFilter === 'IG' || currentFilter === 'FB') {
                         if (lead.platform !== currentFilter) return false;
                     } else {
                         if (lead.status !== currentFilter) return false;
@@ -1083,8 +1169,10 @@
                         lead.location,
                         lead.campaignName,
                         lead.adName,
-                        lead.mattressType,
-                        lead.mattressSize
+                        lead.visaType,
+                        lead.assignedTo,
+                        lead.educationalQualification,
+                        lead.mattressType
                     ].filter(Boolean).join(' ').toLowerCase();
 
                     if (!haystack.includes(search)) return false;
@@ -1125,12 +1213,15 @@
                         </div>
                     </td>
                     <td>
-                        <div>
-                            <span class="pref-pill">${escapeHtml(lead.mattressType || 'latex')}</span>
-                            <span class="pref-pill" style="color:#fff;">${escapeHtml(lead.mattressSize || 'standard')}</span>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <span class="badge-visa ${lead.visaType === 'STUDY_VISA' ? 'visa-study' : (lead.visaType === 'OTHER_VISA' || lead.visaType === 'VISITOR_VISA' ? 'visa-other' : 'visa-work')}">
+                                ${escapeHtml(lead.visaType || 'WORK_VISA')}
+                            </span>
+                            ${lead.assignedTo ? `<span style="font-size:10px; color:var(--text-secondary); background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">👤 ${escapeHtml(lead.assignedTo)}</span>` : ''}
                         </div>
-                        <div class="budget-tag" style="margin-top:4px;">
-                            ${escapeHtml(lead.budgetRange || '')}
+                        <div>
+                            <span class="pref-pill">${escapeHtml(lead.educationalQualification || lead.mattressType || 'General')}</span>
+                            <span class="pref-pill" style="color:#fff;">${escapeHtml(lead.age ? (lead.age + ' yrs') : (lead.mattressSize || 'Standard'))}</span>
                         </div>
                     </td>
                     <td>
@@ -1155,7 +1246,7 @@
             try {
                 const res = await fetch(`/api/leads/${id}/status`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ status: newStatus, notes: 'Status updated via CRM dashboard' })
                 });
 

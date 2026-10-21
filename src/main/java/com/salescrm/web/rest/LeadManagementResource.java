@@ -27,14 +27,18 @@ public class LeadManagementResource {
     }
 
     /**
-     * {@code GET /api/leads/detailed} : Get all leads enriched with customer, attribution and preference data.
+     * {@code GET /api/leads/detailed} : Get all leads enriched with customer, attribution and preference data,
+     * scoped to the authenticated user's role (or filtered by visaType for admin/unauthenticated).
      *
+     * @param visaType optional visa filter (e.g. WORK_VISA, STUDY_VISA, OTHER_VISA)
      * @return the list of detailed leads
      */
     @GetMapping("/detailed")
-    public Mono<ResponseEntity<List<LeadDetailedDTO>>> getAllDetailedLeads() {
-        LOG.debug("REST request to get all enriched leads");
-        return leadDetailedService.findAllDetailed()
+    public Mono<ResponseEntity<List<LeadDetailedDTO>>> getAllDetailedLeads(
+        @RequestParam(name = "visaType", required = false) String visaType
+    ) {
+        LOG.debug("REST request to get enriched leads with visaType: {}", visaType);
+        return leadDetailedService.findAllDetailed(visaType)
             .collectList()
             .map(ResponseEntity::ok);
     }
@@ -67,6 +71,25 @@ public class LeadManagementResource {
     ) {
         LOG.debug("REST request to update status for lead {}: {}", id, updateDTO.getStatus());
         return leadDetailedService.updateStatus(id, updateDTO.getStatus(), updateDTO.getNotes())
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * {@code PATCH /api/leads/:id/assign} : Assign a lead to a staff member.
+     *
+     * @param id lead ID
+     * @param payload map containing "assignedTo" staff login
+     * @return the updated detailed lead
+     */
+    @PatchMapping("/{id}/assign")
+    public Mono<ResponseEntity<LeadDetailedDTO>> assignLead(
+        @PathVariable Long id,
+        @RequestBody java.util.Map<String, String> payload
+    ) {
+        String assignedTo = payload != null ? payload.get("assignedTo") : null;
+        LOG.debug("REST request to assign lead {} to staff {}", id, assignedTo);
+        return leadDetailedService.updateAssignment(id, assignedTo)
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }

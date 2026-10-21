@@ -14,4 +14,13 @@ public interface LeadAnalyticsService {
      * @return Mono of CrmAnalyticsDTO
      */
     Mono<CrmAnalyticsDTO> getDashboardAnalytics();
+
+    /**
+     * Aggregates and returns core marketing performance and lead status metrics,
+     * scoped to the current user's role or optional visa type filter.
+     *
+     * @param visaTypeFilter optional visa filter
+     * @return Mono of CrmAnalyticsDTO
+     */
+    Mono<CrmAnalyticsDTO> getDashboardAnalytics(String visaTypeFilter);
 }

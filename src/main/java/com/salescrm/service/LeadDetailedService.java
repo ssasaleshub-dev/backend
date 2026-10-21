@@ -19,6 +19,14 @@ public interface LeadDetailedService {
     Flux<LeadDetailedDTO> findAllDetailed();
 
     /**
+     * Finds all detailed leads matching optional visa type filter, scoped to the current user's role.
+     *
+     * @param visaTypeFilter optional visa type filter (WORK_VISA, STUDY_VISA, etc.)
+     * @return Flux of LeadDetailedDTO
+     */
+    Flux<LeadDetailedDTO> findAllDetailed(String visaTypeFilter);
+
+    /**
      * Finds a single detailed lead by primary ID.
      *
      * @param id lead ID
@@ -35,4 +43,13 @@ public interface LeadDetailedService {
      * @return Mono of updated LeadDetailedDTO
      */
     Mono<LeadDetailedDTO> updateStatus(Long id, LeadStatus status, String notes);
+
+    /**
+     * Assigns a lead to a staff member.
+     *
+     * @param id lead ID
+     * @param assignedTo staff username
+     * @return Mono of updated LeadDetailedDTO
+     */
+    Mono<LeadDetailedDTO> updateAssignment(Long id, String assignedTo);
 }

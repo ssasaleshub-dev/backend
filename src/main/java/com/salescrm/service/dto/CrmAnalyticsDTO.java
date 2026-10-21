@@ -21,6 +21,8 @@ public class CrmAnalyticsDTO implements Serializable {
     private Map<String, Long> leadsByLocation = new HashMap<>();
     private Map<String, Long> leadsByMattressSize = new HashMap<>();
     private Map<String, Long> leadsByBudget = new HashMap<>();
+    private Map<String, Long> leadsByVisaType = new HashMap<>();
+    private Map<String, Long> leadsByAssignedTo = new HashMap<>();
 
     public CrmAnalyticsDTO() {}
 
@@ -94,5 +96,21 @@ public class CrmAnalyticsDTO implements Serializable {
 
     public void setLeadsByBudget(Map<String, Long> leadsByBudget) {
         this.leadsByBudget = leadsByBudget;
+    }
+
+    public Map<String, Long> getLeadsByVisaType() {
+        return leadsByVisaType;
+    }
+
+    public void setLeadsByVisaType(Map<String, Long> leadsByVisaType) {
+        this.leadsByVisaType = leadsByVisaType;
+    }
+
+    public Map<String, Long> getLeadsByAssignedTo() {
+        return leadsByAssignedTo;
+    }
+
+    public void setLeadsByAssignedTo(Map<String, Long> leadsByAssignedTo) {
+        this.leadsByAssignedTo = leadsByAssignedTo;
     }
 }

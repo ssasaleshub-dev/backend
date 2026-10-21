@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Add authorities if not present -->
+    <changeSet id="20261021000000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM jhi_authority WHERE name = 'ROLE_OTHER_VISA'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="jhi_authority">
+            <column name="name" value="ROLE_OTHER_VISA"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20261021000000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM jhi_authority WHERE name = 'ROLE_VISITOR_VISA'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="jhi_authority">
+            <column name="name" value="ROLE_VISITOR_VISA"/>
+        </insert>
+    </changeSet>
+
+    <!-- Seed staff users for role-based testing -->
+    <changeSet id="20261021000000-3" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM jhi_user WHERE login = 'work_staff'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="jhi_user">
+            <column name="id" valueNumeric="3"/>
+            <column name="login" value="work_staff"/>
+            <column name="password_hash" value="$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC"/>
+            <column name="first_name" value="Work"/>
+            <column name="last_name" value="Staff"/>
+            <column name="email" value="workstaff@localhost"/>
+            <column name="activated" valueBoolean="true"/>
+            <column name="lang_key" value="en"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="3"/>
+            <column name="authority_name" value="ROLE_WORK_VISA"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="3"/>
+            <column name="authority_name" value="ROLE_USER"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20261021000000-4" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM jhi_user WHERE login = 'study_staff'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="jhi_user">
+            <column name="id" valueNumeric="4"/>
+            <column name="login" value="study_staff"/>
+            <column name="password_hash" value="$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC"/>
+            <column name="first_name" value="Study"/>
+            <column name="last_name" value="Staff"/>
+            <column name="email" value="studystaff@localhost"/>
+            <column name="activated" valueBoolean="true"/>
+            <column name="lang_key" value="en"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="4"/>
+            <column name="authority_name" value="ROLE_STUDY_VISA"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="4"/>
+            <column name="authority_name" value="ROLE_USER"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20261021000000-5" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM jhi_user WHERE login = 'other_staff'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="jhi_user">
+            <column name="id" valueNumeric="5"/>
+            <column name="login" value="other_staff"/>
+            <column name="password_hash" value="$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC"/>
+            <column name="first_name" value="Other"/>
+            <column name="last_name" value="Staff"/>
+            <column name="email" value="otherstaff@localhost"/>
+            <column name="activated" valueBoolean="true"/>
+            <column name="lang_key" value="en"/>
+            <column name="created_by" value="system"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="5"/>
+            <column name="authority_name" value="ROLE_OTHER_VISA"/>
+        </insert>
+        <insert tableName="jhi_user_authority">
+            <column name="user_id" valueNumeric="5"/>
+            <column name="authority_name" value="ROLE_USER"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
