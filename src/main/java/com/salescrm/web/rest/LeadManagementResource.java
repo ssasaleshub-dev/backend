@@ -30,7 +30,7 @@ public class LeadManagementResource {
      * {@code GET /api/leads/detailed} : Get all leads enriched with customer, attribution and preference data,
      * scoped to the authenticated user's role (or filtered by visaType for admin/unauthenticated).
      *
-     * @param visaType optional visa filter (e.g. WORK_VISA, STUDY_VISA, OTHER_VISA)
+     * @param visaType optional visa filter (e.g. WORK_VISA, STUDY_VISA, DOMESTIC_COLLEGE_ADMISSION)
      * @return the list of detailed leads
      */
     @GetMapping("/detailed")

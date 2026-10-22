@@ -182,29 +182,22 @@ INSERT INTO jhi_authority (name) VALUES
     ('ROLE_ADMIN'),
     ('ROLE_WORK_VISA'),
     ('ROLE_STUDY_VISA'),
-    ('ROLE_OTHER_VISA'),
-    ('ROLE_VISITOR_VISA'),
-    ('ROLE_USER')
+    ('ROLE_DOMESTIC_COLLEGE_ADMISSION')
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO jhi_user (id, login, password_hash, first_name, last_name, email, activated, lang_key, created_by)
 VALUES
     (1, 'admin', '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC', 'Administrator', 'Administrator', 'admin@localhost', TRUE, 'en', 'system'),
-    (2, 'user', '$2a$10$VEjxo0jq2YG9Rbk2HmX9S.k1uZBGYUHdUcid3g/vfiEl7lwWgOH/K', 'User', 'User', 'user@localhost', TRUE, 'en', 'system'),
     (3, 'work_staff', '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC', 'Work', 'Staff', 'workstaff@localhost', TRUE, 'en', 'system'),
     (4, 'study_staff', '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC', 'Study', 'Staff', 'studystaff@localhost', TRUE, 'en', 'system'),
-    (5, 'other_staff', '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC', 'Other', 'Staff', 'otherstaff@localhost', TRUE, 'en', 'system')
+    (5, 'admission_staff', '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC', 'Domestic', 'Admission Staff', 'admissionstaff@localhost', TRUE, 'en', 'system')
 ON CONFLICT (login) DO NOTHING;
 
 INSERT INTO jhi_user_authority (user_id, authority_name) VALUES
     (1, 'ROLE_ADMIN'),
-    (1, 'ROLE_USER'),
-    (2, 'ROLE_USER'),
     (3, 'ROLE_WORK_VISA'),
-    (3, 'ROLE_USER'),
     (4, 'ROLE_STUDY_VISA'),
-    (4, 'ROLE_USER'),
-    (5, 'ROLE_OTHER_VISA'),
-    (5, 'ROLE_USER')
+    (5, 'ROLE_DOMESTIC_COLLEGE_ADMISSION')
 ON CONFLICT DO NOTHING;
+
 

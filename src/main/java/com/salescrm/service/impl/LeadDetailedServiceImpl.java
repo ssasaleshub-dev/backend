@@ -18,7 +18,7 @@ import reactor.core.publisher.Mono;
 
 /**
  * Service implementation enriching Leads with their complete relational hierarchy
- * and enforcing role-based visibility for staff (Work Visa, Study Visa, Other Visa).
+ * and enforcing role-based visibility for staff (Work Visa, Study Visa, Domestic College Admission).
  */
 @Service
 public class LeadDetailedServiceImpl implements LeadDetailedService {
@@ -130,7 +130,7 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
         final boolean isAdmin;
         final boolean isWorkVisa;
         final boolean isStudyVisa;
-        final boolean isOtherVisa;
+        final boolean isDomesticAdmission;
 
         LeadAccessScope(String login, Set<String> authorities) {
             this.login = login;
@@ -138,8 +138,7 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
             this.isAdmin = this.authorities.contains(AuthoritiesConstants.ADMIN);
             this.isWorkVisa = this.authorities.contains(AuthoritiesConstants.WORK_VISA);
             this.isStudyVisa = this.authorities.contains(AuthoritiesConstants.STUDY_VISA);
-            this.isOtherVisa = this.authorities.contains(AuthoritiesConstants.OTHER_VISA) ||
-                               this.authorities.contains(AuthoritiesConstants.VISITOR_VISA);
+            this.isDomesticAdmission = this.authorities.contains(AuthoritiesConstants.DOMESTIC_COLLEGE_ADMISSION);
         }
 
         boolean isLeadVisible(LeadDetailedDTO lead, String requestedVisaType) {
@@ -166,11 +165,9 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
                 return matchesVisaType(lead.getVisaType(), "STUDY_VISA");
             }
 
-            // Staff 3: Other / Visitor Visa
-            if (isOtherVisa) {
-                String vt = lead.getVisaType();
-                if (vt == null || vt.isBlank()) return true;
-                return !matchesVisaType(vt, "WORK_VISA") && !matchesVisaType(vt, "STUDY_VISA");
+            // Staff 3: Domestic College Admission
+            if (isDomesticAdmission) {
+                return matchesVisaType(lead.getVisaType(), "DOMESTIC_COLLEGE_ADMISSION");
             }
 
             // Fallback for unauthenticated dev calls
@@ -187,8 +184,9 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
             if (a.equals(t)) return true;
             if (t.contains("WORK") && a.contains("WORK")) return true;
             if (t.contains("STUDY") && (a.contains("STUDY") || a.contains("STUDENT"))) return true;
-            if (t.contains("OTHER") || t.contains("VISITOR")) {
-                return a.contains("OTHER") || a.contains("VISITOR") || a.contains("TOURIST");
+            if ((t.contains("DOMESTIC") || t.contains("COLLEGE") || t.contains("ADMISSION")) &&
+                (a.contains("DOMESTIC") || a.contains("COLLEGE") || a.contains("ADMISSION"))) {
+                return true;
             }
             return false;
         }

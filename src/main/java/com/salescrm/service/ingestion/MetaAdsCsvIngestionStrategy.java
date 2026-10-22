@@ -165,6 +165,9 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
                 if (lower.contains("study") || lower.contains("student")) {
                     return "STUDY_VISA";
                 }
+                if (lower.contains("domestic") || lower.contains("college") || lower.contains("admission")) {
+                    return "DOMESTIC_COLLEGE_ADMISSION";
+                }
             }
         }
         return "WORK_VISA";

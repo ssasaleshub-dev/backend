@@ -1,5 +1,6 @@
 package com.salescrm.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.salescrm.config.Constants;
 import com.salescrm.domain.Authority;
 import com.salescrm.domain.User;
@@ -34,6 +35,10 @@ public class AdminUserDTO implements Serializable {
     @Email
     @Size(min = 5, max = 254)
     private String email;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Size(min = 4, max = 100)
+    private String password;
 
     @Size(max = 256)
     private String imageUrl;
@@ -111,6 +116,14 @@ public class AdminUserDTO implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public String getImageUrl() {

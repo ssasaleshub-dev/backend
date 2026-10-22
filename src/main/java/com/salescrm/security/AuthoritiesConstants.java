@@ -11,9 +11,7 @@ public final class AuthoritiesConstants {
 
     public static final String STUDY_VISA = "ROLE_STUDY_VISA";
 
-    public static final String VISITOR_VISA = "ROLE_VISITOR_VISA";
-
-    public static final String OTHER_VISA = "ROLE_OTHER_VISA";
+    public static final String DOMESTIC_COLLEGE_ADMISSION = "ROLE_DOMESTIC_COLLEGE_ADMISSION";
 
     public static final String USER = "ROLE_USER";
 

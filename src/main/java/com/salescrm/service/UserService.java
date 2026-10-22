@@ -164,7 +164,10 @@ public class UserService {
             .then(Mono.just(user))
             .publishOn(Schedulers.boundedElastic())
             .map(newUser -> {
-                String encryptedPassword = passwordEncoder.encode(RandomUtil.generatePassword());
+                String rawPassword = (userDTO.getPassword() != null && !userDTO.getPassword().isBlank())
+                    ? userDTO.getPassword()
+                    : RandomUtil.generatePassword();
+                String encryptedPassword = passwordEncoder.encode(rawPassword);
                 newUser.setPassword(encryptedPassword);
                 newUser.setResetKey(RandomUtil.generateResetKey());
                 newUser.setResetDate(Instant.now());

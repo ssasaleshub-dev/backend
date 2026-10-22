@@ -649,7 +649,7 @@
             color: #6ee7b7;
             border: 1px solid rgba(16, 185, 129, 0.4);
         }
-        .visa-other {
+        .visa-domestic {
             background: rgba(245, 158, 11, 0.2);
             color: #fcd34d;
             border: 1px solid rgba(245, 158, 11, 0.4);
@@ -794,7 +794,7 @@
                         <option value="admin" style="background:var(--bg-surface); color:#fff;">Admin (All Leads)</option>
                         <option value="work_staff" style="background:var(--bg-surface); color:#fff;">Work Visa Staff</option>
                         <option value="study_staff" style="background:var(--bg-surface); color:#fff;">Study Visa Staff</option>
-                        <option value="other_staff" style="background:var(--bg-surface); color:#fff;">Other Visa Staff</option>
+                        <option value="admission_staff" style="background:var(--bg-surface); color:#fff;">Domestic College Admission Staff</option>
                     </select>
                 </div>
                 <button class="btn btn-secondary" id="btn-seed" onclick="triggerSampleSeed()">
@@ -959,7 +959,7 @@
                     <button class="filter-btn active" onclick="setFilter('ALL', this)">All</button>
                     <button class="filter-btn" onclick="setFilter('WORK_VISA', this)">💼 Work Visa</button>
                     <button class="filter-btn" onclick="setFilter('STUDY_VISA', this)">🎓 Study Visa</button>
-                    <button class="filter-btn" onclick="setFilter('OTHER_VISA', this)">🌐 Other Visa</button>
+                    <button class="filter-btn" onclick="setFilter('DOMESTIC_COLLEGE_ADMISSION', this)">🏛️ Domestic College Admission</button>
                     <button class="filter-btn" onclick="setFilter('IG', this)">Instagram</button>
                     <button class="filter-btn" onclick="setFilter('FB', this)">Facebook</button>
                     <button class="filter-btn" onclick="setFilter('CREATED', this)">Created</button>
@@ -1147,12 +1147,8 @@
             const filtered = allLeads.filter(lead => {
                 // Visa or Channel or Status filter
                 if (currentFilter !== 'ALL') {
-                    if (currentFilter === 'WORK_VISA' || currentFilter === 'STUDY_VISA' || currentFilter === 'OTHER_VISA') {
-                        if (currentFilter === 'OTHER_VISA') {
-                            if (lead.visaType === 'WORK_VISA' || lead.visaType === 'STUDY_VISA') return false;
-                        } else {
-                            if (lead.visaType !== currentFilter) return false;
-                        }
+                    if (currentFilter === 'WORK_VISA' || currentFilter === 'STUDY_VISA' || currentFilter === 'DOMESTIC_COLLEGE_ADMISSION') {
+                        if (lead.visaType !== currentFilter) return false;
                     } else if (currentFilter === 'IG' || currentFilter === 'FB') {
                         if (lead.platform !== currentFilter) return false;
                     } else {
@@ -1214,7 +1210,7 @@
                     </td>
                     <td>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                            <span class="badge-visa ${lead.visaType === 'STUDY_VISA' ? 'visa-study' : (lead.visaType === 'OTHER_VISA' || lead.visaType === 'VISITOR_VISA' ? 'visa-other' : 'visa-work')}">
+                            <span class="badge-visa ${lead.visaType === 'STUDY_VISA' ? 'visa-study' : (lead.visaType === 'DOMESTIC_COLLEGE_ADMISSION' ? 'visa-domestic' : 'visa-work')}">
                                 ${escapeHtml(lead.visaType || 'WORK_VISA')}
                             </span>
                             ${lead.assignedTo ? `<span style="font-size:10px; color:var(--text-secondary); background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">👤 ${escapeHtml(lead.assignedTo)}</span>` : ''}
