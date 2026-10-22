@@ -56,4 +56,22 @@ public interface ChatMessageService {
      * @return Mono signaling completion.
      */
     Mono<Void> delete(Long id);
+
+    /**
+     * Get private P2P conversation strictly between two users.
+     *
+     * @param userA first user id.
+     * @param userB second user id.
+     * @return Flux of message DTOs.
+     */
+    Flux<ChatMessageDTO> findP2pConversation(Long userA, Long userB);
+
+    /**
+     * Mark P2P messages sent to recipient by sender as read.
+     *
+     * @param recipientId recipient user id.
+     * @param senderId sender user id.
+     * @return Mono signaling completion.
+     */
+    Mono<Void> markP2pAsRead(Long recipientId, Long senderId);
 }

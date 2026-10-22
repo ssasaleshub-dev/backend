@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261022144500-1" author="salescrm">
+        <addColumn tableName="messages">
+            <column name="recipient_id" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_read" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addForeignKeyConstraint baseColumnNames="recipient_id"
+                                 baseTableName="messages"
+                                 constraintName="fk_messages__recipient_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"
+                                 onDelete="SET NULL"/>
+        <createIndex indexName="idx_messages_recipient_id" tableName="messages">
+            <column name="recipient_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

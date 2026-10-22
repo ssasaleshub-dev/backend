@@ -46,6 +46,12 @@ public class ChatMessage implements Serializable {
     @Column("file_size")
     private Long fileSize;
 
+    @Column("recipient_id")
+    private Long recipientId;
+
+    @Column("is_read")
+    private Boolean isRead = Boolean.FALSE;
+
     @Column("created_at")
     private Instant createdAt = Instant.now();
 
@@ -156,6 +162,32 @@ public class ChatMessage implements Serializable {
         this.fileSize = fileSize;
     }
 
+    public Long getRecipientId() {
+        return this.recipientId;
+    }
+
+    public ChatMessage recipientId(Long recipientId) {
+        this.setRecipientId(recipientId);
+        return this;
+    }
+
+    public void setRecipientId(Long recipientId) {
+        this.recipientId = recipientId;
+    }
+
+    public Boolean getIsRead() {
+        return this.isRead;
+    }
+
+    public ChatMessage isRead(Boolean isRead) {
+        this.setIsRead(isRead);
+        return this;
+    }
+
+    public void setIsRead(Boolean isRead) {
+        this.isRead = isRead;
+    }
+
     public Instant getCreatedAt() {
         return this.createdAt;
     }
@@ -206,6 +238,8 @@ public class ChatMessage implements Serializable {
         return "ChatMessage{" +
             "id=" + getId() +
             ", userId=" + getUserId() +
+            ", recipientId=" + getRecipientId() +
+            ", isRead=" + getIsRead() +
             ", content='" + getContent() + "'" +
             ", channel='" + getChannel() + "'" +
             ", mediaUrl='" + getMediaUrl() + "'" +

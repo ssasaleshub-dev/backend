@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS messages (
     media_type VARCHAR(50),
     file_name VARCHAR(255),
     file_size BIGINT,
+    recipient_id BIGINT REFERENCES jhi_user(id) ON DELETE SET NULL,
+    is_read BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -107,6 +109,8 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_url VARCHAR(1024);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(50);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_id BIGINT REFERENCES jhi_user(id) ON DELETE SET NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE messages ALTER COLUMN content DROP NOT NULL;
 
 -- Performance Indices
@@ -121,6 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_lead_platform ON lead(platform);
 CREATE INDEX IF NOT EXISTS idx_customer_phone ON customer(phone_number);
 CREATE INDEX IF NOT EXISTS idx_lead_preference_lead_id ON lead_preference(lead_id);
 CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 

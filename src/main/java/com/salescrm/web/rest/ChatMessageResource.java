@@ -1,6 +1,8 @@
 package com.salescrm.web.rest;
 
+import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.ChatMessageService;
+import com.salescrm.service.UserService;
 import com.salescrm.service.dto.ChatMessageDTO;
 import com.salescrm.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
@@ -33,9 +35,11 @@ public class ChatMessageResource {
     private String applicationName;
 
     private final ChatMessageService chatMessageService;
+    private final UserService userService;
 
-    public ChatMessageResource(ChatMessageService chatMessageService) {
+    public ChatMessageResource(ChatMessageService chatMessageService, UserService userService) {
         this.chatMessageService = chatMessageService;
+        this.userService = userService;
     }
 
     /**
@@ -140,5 +144,44 @@ public class ChatMessageResource {
                     .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
                     .build()
             );
+    }
+
+    /**
+     * {@code GET  /api/messages/p2p/:otherUserId} : Get private P2P conversation strictly between the current user and otherUserId.
+     *
+     * @param otherUserId the other user ID.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of chat messages.
+     */
+    @GetMapping("/p2p/{otherUserId}")
+    public Mono<ResponseEntity<List<ChatMessageDTO>>> getP2pMessages(@PathVariable Long otherUserId) {
+        LOG.debug("REST request to get P2P messages with user: {}", otherUserId);
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userService::getUserWithAuthoritiesByLogin)
+            .flatMap(currentUser ->
+                chatMessageService
+                    .findP2pConversation(currentUser.getId(), otherUserId)
+                    .collectList()
+                    .flatMap(messages ->
+                        chatMessageService.markP2pAsRead(currentUser.getId(), otherUserId)
+                            .thenReturn(messages)
+                    )
+            )
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.ok(List.of()));
+    }
+
+    /**
+     * {@code PATCH  /api/messages/p2p/:otherUserId/read} : Mark all unread messages from otherUserId to current user as read.
+     *
+     * @param otherUserId the sender user ID.
+     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
+     */
+    @PatchMapping("/p2p/{otherUserId}/read")
+    public Mono<ResponseEntity<Void>> markP2pAsRead(@PathVariable Long otherUserId) {
+        LOG.debug("REST request to mark P2P messages from user {} as read", otherUserId);
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userService::getUserWithAuthoritiesByLogin)
+            .flatMap(currentUser -> chatMessageService.markP2pAsRead(currentUser.getId(), otherUserId))
+            .thenReturn(ResponseEntity.noContent().build());
     }
 }

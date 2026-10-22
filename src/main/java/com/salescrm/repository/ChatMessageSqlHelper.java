@@ -18,6 +18,8 @@ public class ChatMessageSqlHelper {
         columns.add(Column.aliased("media_type", table, columnPrefix + "_media_type"));
         columns.add(Column.aliased("file_name", table, columnPrefix + "_file_name"));
         columns.add(Column.aliased("file_size", table, columnPrefix + "_file_size"));
+        columns.add(Column.aliased("recipient_id", table, columnPrefix + "_recipient_id"));
+        columns.add(Column.aliased("is_read", table, columnPrefix + "_is_read"));
         columns.add(Column.aliased("created_at", table, columnPrefix + "_created_at"));
 
         return columns;

@@ -47,7 +47,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         if (chatMessageDTO.getCreatedAt() == null) {
             chatMessageDTO.setCreatedAt(Instant.now());
         }
-        if (chatMessageDTO.getChannel() == null || chatMessageDTO.getChannel().isBlank()) {
+        if (chatMessageDTO.getRecipientId() != null) {
+            if (chatMessageDTO.getChannel() == null || chatMessageDTO.getChannel().isBlank() || "general".equalsIgnoreCase(chatMessageDTO.getChannel())) {
+                chatMessageDTO.setChannel("p2p");
+            }
+        } else if (chatMessageDTO.getChannel() == null || chatMessageDTO.getChannel().isBlank()) {
             chatMessageDTO.setChannel("general");
         }
 
@@ -104,6 +108,21 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         return chatMessageRepository.deleteById(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<ChatMessageDTO> findP2pConversation(Long userA, Long userB) {
+        LOG.debug("Request to get P2P conversation between user {} and user {}", userA, userB);
+        return chatMessageRepository.findP2pConversation(userA, userB)
+            .map(chatMessageMapper::toDto)
+            .concatMap(this::enrichDTO);
+    }
+
+    @Override
+    public Mono<Void> markP2pAsRead(Long recipientId, Long senderId) {
+        LOG.debug("Request to mark P2P messages as read for recipient {} from sender {}", recipientId, senderId);
+        return chatMessageRepository.markP2pAsRead(recipientId, senderId);
+    }
+
     private Mono<Long> resolveUserId(Long providedUserId) {
         if (providedUserId != null && providedUserId > 0) {
             return Mono.just(providedUserId);
@@ -123,8 +142,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         if (dto == null) {
             return Mono.empty();
         }
+        Mono<ChatMessageDTO> senderEnrich = Mono.just(dto);
         if (dto.getUserId() != null) {
-            return userRepository.findById(dto.getUserId())
+            senderEnrich = userRepository.findById(dto.getUserId())
                 .map(user -> {
                     dto.setUserLogin(user.getLogin());
                     String fullName = "";
@@ -143,6 +163,28 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 })
                 .defaultIfEmpty(dto);
         }
-        return Mono.just(dto);
+
+        return senderEnrich.flatMap(d -> {
+            if (d.getRecipientId() != null) {
+                return userRepository.findById(d.getRecipientId())
+                    .map(recipient -> {
+                        d.setRecipientLogin(recipient.getLogin());
+                        String fullName = "";
+                        if (recipient.getFirstName() != null && !recipient.getFirstName().isBlank()) {
+                            fullName += recipient.getFirstName();
+                        }
+                        if (recipient.getLastName() != null && !recipient.getLastName().isBlank()) {
+                            fullName += (fullName.isBlank() ? "" : " ") + recipient.getLastName();
+                        }
+                        if (fullName.isBlank()) {
+                            fullName = recipient.getLogin();
+                        }
+                        d.setRecipientName(fullName);
+                        return d;
+                    })
+                    .defaultIfEmpty(d);
+            }
+            return Mono.just(d);
+        });
     }
 }

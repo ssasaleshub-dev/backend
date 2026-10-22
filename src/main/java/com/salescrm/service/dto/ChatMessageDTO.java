@@ -40,6 +40,14 @@ public class ChatMessageDTO implements Serializable {
 
     private Long fileSize;
 
+    private Long recipientId;
+
+    private String recipientLogin;
+
+    private String recipientName;
+
+    private Boolean isRead = Boolean.FALSE;
+
     private Instant createdAt = Instant.now();
 
     public Long getId() {
@@ -150,6 +158,38 @@ public class ChatMessageDTO implements Serializable {
         this.fileSize = fileSize;
     }
 
+    public Long getRecipientId() {
+        return recipientId;
+    }
+
+    public void setRecipientId(Long recipientId) {
+        this.recipientId = recipientId;
+    }
+
+    public String getRecipientLogin() {
+        return recipientLogin;
+    }
+
+    public void setRecipientLogin(String recipientLogin) {
+        this.recipientLogin = recipientLogin;
+    }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public void setRecipientName(String recipientName) {
+        this.recipientName = recipientName;
+    }
+
+    public Boolean getIsRead() {
+        return isRead;
+    }
+
+    public void setIsRead(Boolean isRead) {
+        this.isRead = isRead;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -183,6 +223,10 @@ public class ChatMessageDTO implements Serializable {
         return "ChatMessageDTO{" +
             "id=" + getId() +
             ", userId=" + getUserId() +
+            ", recipientId=" + getRecipientId() +
+            ", recipientLogin='" + getRecipientLogin() + "'" +
+            ", recipientName='" + getRecipientName() + "'" +
+            ", isRead=" + getIsRead() +
             ", userLogin='" + getUserLogin() + "'" +
             ", userName='" + getUserName() + "'" +
             ", content='" + getContent() + "'" +
