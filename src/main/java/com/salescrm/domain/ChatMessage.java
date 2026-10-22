@@ -28,12 +28,23 @@ public class ChatMessage implements Serializable {
     @Column("user_id")
     private Long userId;
 
-    @NotNull(message = "must not be null")
     @Column("content")
     private String content;
 
     @Column("channel")
     private String channel = "general";
+
+    @Column("media_url")
+    private String mediaUrl;
+
+    @Column("media_type")
+    private String mediaType; // "IMAGE", "VIDEO", "DOCUMENT", etc.
+
+    @Column("file_name")
+    private String fileName;
+
+    @Column("file_size")
+    private Long fileSize;
 
     @Column("created_at")
     private Instant createdAt = Instant.now();
@@ -93,6 +104,58 @@ public class ChatMessage implements Serializable {
         this.channel = channel;
     }
 
+    public String getMediaUrl() {
+        return this.mediaUrl;
+    }
+
+    public ChatMessage mediaUrl(String mediaUrl) {
+        this.setMediaUrl(mediaUrl);
+        return this;
+    }
+
+    public void setMediaUrl(String mediaUrl) {
+        this.mediaUrl = mediaUrl;
+    }
+
+    public String getMediaType() {
+        return this.mediaType;
+    }
+
+    public ChatMessage mediaType(String mediaType) {
+        this.setMediaType(mediaType);
+        return this;
+    }
+
+    public void setMediaType(String mediaType) {
+        this.mediaType = mediaType;
+    }
+
+    public String getFileName() {
+        return this.fileName;
+    }
+
+    public ChatMessage fileName(String fileName) {
+        this.setFileName(fileName);
+        return this;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public Long getFileSize() {
+        return this.fileSize;
+    }
+
+    public ChatMessage fileSize(Long fileSize) {
+        this.setFileSize(fileSize);
+        return this;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
     public Instant getCreatedAt() {
         return this.createdAt;
     }
@@ -145,6 +208,10 @@ public class ChatMessage implements Serializable {
             ", userId=" + getUserId() +
             ", content='" + getContent() + "'" +
             ", channel='" + getChannel() + "'" +
+            ", mediaUrl='" + getMediaUrl() + "'" +
+            ", mediaType='" + getMediaType() + "'" +
+            ", fileName='" + getFileName() + "'" +
+            ", fileSize=" + getFileSize() +
             ", createdAt='" + getCreatedAt() + "'" +
             "}";
     }

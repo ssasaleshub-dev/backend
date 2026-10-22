@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261022143000-1" author="salescrm">
+        <!-- 1. Add media columns to messages table -->
+        <addColumn tableName="messages">
+            <column name="media_url" type="varchar(1024)"/>
+            <column name="media_type" type="varchar(50)"/>
+            <column name="file_name" type="varchar(255)"/>
+            <column name="file_size" type="bigint"/>
+        </addColumn>
+        <!-- 2. Make content nullable so users can send standalone media files -->
+        <dropNotNullConstraint tableName="messages" columnName="content" columnDataType="text"/>
+    </changeSet>
+</databaseChangeLog>

@@ -29,6 +29,10 @@ public class ChatMessageRowMapper implements BiFunction<Row, String, ChatMessage
         entity.setUserId(converter.fromRow(row, prefix + "_user_id", Long.class));
         entity.setContent(converter.fromRow(row, prefix + "_content", String.class));
         entity.setChannel(converter.fromRow(row, prefix + "_channel", String.class));
+        entity.setMediaUrl(converter.fromRow(row, prefix + "_media_url", String.class));
+        entity.setMediaType(converter.fromRow(row, prefix + "_media_type", String.class));
+        entity.setFileName(converter.fromRow(row, prefix + "_file_name", String.class));
+        entity.setFileSize(converter.fromRow(row, prefix + "_file_size", Long.class));
         entity.setCreatedAt(converter.fromRow(row, prefix + "_created_at", Instant.class));
         return entity;
     }

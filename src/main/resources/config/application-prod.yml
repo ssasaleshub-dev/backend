@@ -105,3 +105,11 @@ jhipster:
 # ===================================================================
 
 # application:
+
+cloudflare:
+  r2:
+    endpoint: ${CLOUDFLARE_R2_ENDPOINT:https://68de8c2096d7fa589eb2dcacb521d93e.r2.cloudflarestorage.com}
+    bucket-name: ${CLOUDFLARE_R2_BUCKET_NAME:ssasaleshub}
+    access-key-id: ${CLOUDFLARE_R2_ACCESS_KEY_ID:92ce63ca912817d89306ee9744ce0df0}
+    secret-access-key: ${CLOUDFLARE_R2_SECRET_ACCESS_KEY:6326c2231f746f1a6cc32e64a5632b3121784d5f26f1fb6359599be75eb17b68}
+    public-domain: ${CLOUDFLARE_R2_PUBLIC_DOMAIN:https://pub-b38ef19fd7704f8381af26597be53b7f.r2.dev}

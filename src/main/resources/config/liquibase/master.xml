@@ -31,4 +31,5 @@
     <include file="config/liquibase/changelog/20261015010000_added_visa_columns.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261021000000_added_staff_roles_and_users.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261022000000_replace_other_visa_with_domestic_college_admission.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261022143000_added_chat_message_media_columns.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

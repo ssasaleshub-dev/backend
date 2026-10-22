@@ -94,10 +94,20 @@ ALTER TABLE lead_preference ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(100);
 CREATE TABLE IF NOT EXISTS messages (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES jhi_user(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
+    content TEXT,
     channel VARCHAR(50) DEFAULT 'general',
+    media_url VARCHAR(1024),
+    media_type VARCHAR(50),
+    file_name VARCHAR(255),
+    file_size BIGINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_url VARCHAR(1024);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(50);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE messages ALTER COLUMN content DROP NOT NULL;
 
 -- Performance Indices
 CREATE INDEX IF NOT EXISTS idx_adset_campaign_id ON ad_set(campaign_id);

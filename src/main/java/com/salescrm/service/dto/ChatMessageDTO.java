@@ -27,11 +27,18 @@ public class ChatMessageDTO implements Serializable {
 
     private String userImageUrl;
 
-    @NotNull
     @JsonAlias({ "message", "text" })
     private String content;
 
     private String channel = "general";
+
+    private String mediaUrl;
+
+    private String mediaType;
+
+    private String fileName;
+
+    private Long fileSize;
 
     private Instant createdAt = Instant.now();
 
@@ -111,6 +118,38 @@ public class ChatMessageDTO implements Serializable {
         this.channel = channel;
     }
 
+    public String getMediaUrl() {
+        return mediaUrl;
+    }
+
+    public void setMediaUrl(String mediaUrl) {
+        this.mediaUrl = mediaUrl;
+    }
+
+    public String getMediaType() {
+        return mediaType;
+    }
+
+    public void setMediaType(String mediaType) {
+        this.mediaType = mediaType;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -148,6 +187,10 @@ public class ChatMessageDTO implements Serializable {
             ", userName='" + getUserName() + "'" +
             ", content='" + getContent() + "'" +
             ", channel='" + getChannel() + "'" +
+            ", mediaUrl='" + getMediaUrl() + "'" +
+            ", mediaType='" + getMediaType() + "'" +
+            ", fileName='" + getFileName() + "'" +
+            ", fileSize=" + getFileSize() +
             ", createdAt='" + getCreatedAt() + "'" +
             "}";
     }
