@@ -20,6 +20,11 @@ public interface LeadMapper extends EntityMapper<LeadDTO, Lead> {
     @Mapping(target = "leadForm", source = "leadForm", qualifiedByName = "leadFormName")
     LeadDTO toDto(Lead s);
 
+    @Mapping(target = "customerId", source = "customer.id")
+    @Mapping(target = "adId", source = "ad.id")
+    @Mapping(target = "leadFormId", source = "leadForm.id")
+    Lead toEntity(LeadDTO dto);
+
     @Named("customerFullName")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")

@@ -1,5 +1,6 @@
 package com.salescrm.service.impl;
 
+import com.salescrm.domain.Lead;
 import com.salescrm.repository.LeadRepository;
 import com.salescrm.service.LeadService;
 import com.salescrm.service.dto.LeadDTO;
@@ -33,6 +34,26 @@ public class LeadServiceImpl implements LeadService {
     @Override
     public Mono<LeadDTO> save(LeadDTO leadDTO) {
         LOG.debug("Request to save Lead : {}", leadDTO);
+        if (leadDTO.getExternalId() != null && !leadDTO.getExternalId().isBlank()) {
+            String cleanExtId = leadDTO.getExternalId().trim();
+            return leadRepository
+                .findByExternalId(cleanExtId)
+                .flatMap(existingLead -> {
+                    leadMapper.partialUpdate(existingLead, leadDTO);
+                    if (leadDTO.getCustomer() != null && leadDTO.getCustomer().getId() != null) {
+                        existingLead.setCustomerId(leadDTO.getCustomer().getId());
+                    }
+                    if (leadDTO.getAd() != null && leadDTO.getAd().getId() != null) {
+                        existingLead.setAdId(leadDTO.getAd().getId());
+                    }
+                    if (leadDTO.getLeadForm() != null && leadDTO.getLeadForm().getId() != null) {
+                        existingLead.setLeadFormId(leadDTO.getLeadForm().getId());
+                    }
+                    return leadRepository.save(existingLead);
+                })
+                .switchIfEmpty(Mono.defer(() -> leadRepository.save(leadMapper.toEntity(leadDTO))))
+                .map(leadMapper::toDto);
+        }
         return leadRepository.save(leadMapper.toEntity(leadDTO)).map(leadMapper::toDto);
     }
 

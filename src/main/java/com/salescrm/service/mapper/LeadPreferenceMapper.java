@@ -14,6 +14,9 @@ public interface LeadPreferenceMapper extends EntityMapper<LeadPreferenceDTO, Le
     @Mapping(target = "lead", source = "lead", qualifiedByName = "leadExternalId")
     LeadPreferenceDTO toDto(LeadPreference s);
 
+    @Mapping(target = "leadId", source = "lead.id")
+    LeadPreference toEntity(LeadPreferenceDTO dto);
+
     @Named("leadExternalId")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")

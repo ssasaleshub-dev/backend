@@ -1,5 +1,6 @@
 package com.salescrm.service.impl;
 
+import com.salescrm.domain.LeadPreference;
 import com.salescrm.repository.LeadPreferenceRepository;
 import com.salescrm.service.LeadPreferenceService;
 import com.salescrm.service.dto.LeadPreferenceDTO;
@@ -33,6 +34,24 @@ public class LeadPreferenceServiceImpl implements LeadPreferenceService {
     @Override
     public Mono<LeadPreferenceDTO> save(LeadPreferenceDTO leadPreferenceDTO) {
         LOG.debug("Request to save LeadPreference : {}", leadPreferenceDTO);
+        Long leadId = leadPreferenceDTO.getLead() != null ? leadPreferenceDTO.getLead().getId() : null;
+        if (leadId != null) {
+            return leadPreferenceRepository
+                .findOneByLeadId(leadId)
+                .flatMap(existing -> {
+                    leadPreferenceMapper.partialUpdate(existing, leadPreferenceDTO);
+                    existing.setLeadId(leadId);
+                    return leadPreferenceRepository.save(existing);
+                })
+                .switchIfEmpty(
+                    Mono.defer(() -> {
+                        LeadPreference entity = leadPreferenceMapper.toEntity(leadPreferenceDTO);
+                        entity.setLeadId(leadId);
+                        return leadPreferenceRepository.save(entity);
+                    })
+                )
+                .map(leadPreferenceMapper::toDto);
+        }
         return leadPreferenceRepository.save(leadPreferenceMapper.toEntity(leadPreferenceDTO)).map(leadPreferenceMapper::toDto);
     }
 
