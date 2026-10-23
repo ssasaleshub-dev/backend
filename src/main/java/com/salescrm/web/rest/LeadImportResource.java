@@ -29,29 +29,70 @@ public class LeadImportResource {
     }
 
     /**
-     * {@code POST /api/leads/import/file} : Upload and ingest an Excel (.xlsx/.xls) or CSV file.
+     * {@code POST /api/leads/import/file} : Upload and ingest a Meta Ads lead export file (.xlsx, .xls, .csv).
      *
-     * @param filePartMono the multipart file upload
-     * @return the execution results and telemetry
+     * Consumes: multipart/form-data
+     * Request Parameter: file (MultipartFile / FilePart)
+     * Produces: application/json (LeadImportResultDTO)
+     *
+     * @param filePartMono the multipart file upload part named "file"
+     * @return the execution telemetry and result summary
      */
-    @PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<ResponseEntity<LeadImportResultDTO>> uploadFile(@RequestPart("file") Mono<FilePart> filePartMono) {
+    @PostMapping(
+        value = "/file",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public Mono<ResponseEntity<LeadImportResultDTO>> uploadFile(
+        @RequestPart(value = "file", required = false) Mono<FilePart> filePartMono
+    ) {
         LOG.info("REST request to upload and ingest lead spreadsheet");
-        return filePartMono.flatMap(filePart ->
-            DataBufferUtils.join(filePart.content())
-                .flatMap(dataBuffer -> {
-                    byte[] bytes = new byte[dataBuffer.readableByteCount()];
-                    dataBuffer.read(bytes);
-                    DataBufferUtils.release(dataBuffer);
-                    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        if (filePartMono == null) {
+            LeadImportResultDTO err = LeadImportResultDTO.create("unknown");
+            err.addError("No file provided in request part 'file'");
+            return Mono.just(ResponseEntity.ok(err));
+        }
 
-                    String contentType = filePart.headers().getContentType() != null
-                        ? filePart.headers().getContentType().toString()
-                        : "application/octet-stream";
+        return filePartMono
+            .flatMap(filePart -> {
+                String filename = filePart.filename();
+                if (filename == null || filename.isBlank()) {
+                    LeadImportResultDTO err = LeadImportResultDTO.create("unnamed");
+                    err.addError("Uploaded file has an empty filename");
+                    return Mono.just(err);
+                }
 
-                    return leadImportService.importFile(filePart.filename(), contentType, bais);
-                })
-        ).map(ResponseEntity::ok);
+                return DataBufferUtils.join(filePart.content())
+                    .flatMap(dataBuffer -> {
+                        byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                        dataBuffer.read(bytes);
+                        DataBufferUtils.release(dataBuffer);
+
+                        if (bytes.length == 0) {
+                            LeadImportResultDTO err = LeadImportResultDTO.create(filename);
+                            err.addError("Uploaded file '" + filename + "' is empty (0 bytes)");
+                            return Mono.just(err);
+                        }
+
+                        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+                        String contentType = filePart.headers().getContentType() != null
+                            ? filePart.headers().getContentType().toString()
+                            : "application/octet-stream";
+
+                        return leadImportService.importFile(filename, contentType, bais);
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        LeadImportResultDTO err = LeadImportResultDTO.create(filename);
+                        err.addError("Uploaded file '" + filename + "' is empty (0 bytes)");
+                        return Mono.just(err);
+                    }));
+            })
+            .switchIfEmpty(Mono.defer(() -> {
+                LeadImportResultDTO err = LeadImportResultDTO.create("unknown");
+                err.addError("No file provided in request part 'file'");
+                return Mono.just(err);
+            }))
+            .map(ResponseEntity::ok);
     }
 
     /**

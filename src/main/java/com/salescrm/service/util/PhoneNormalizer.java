@@ -25,13 +25,15 @@ public class PhoneNormalizer {
 
         String cleaned = rawPhone.trim();
 
-        // Strip Meta Ads 'p:' or 'P:' prefix
+        // Strip Meta Ads 'p:' or 'P:' or 'tel:' prefix
         if (cleaned.toLowerCase().startsWith("p:")) {
             cleaned = cleaned.substring(2).trim();
+        } else if (cleaned.toLowerCase().startsWith("tel:")) {
+            cleaned = cleaned.substring(4).trim();
         }
 
-        // Remove whitespace and hyphens
-        cleaned = cleaned.replaceAll("[\\s\\-\\(\\)]", "");
+        // Remove whitespace, hyphens, parentheses, and dots
+        cleaned = cleaned.replaceAll("[\\s\\-\\(\\)\\.]", "");
 
         return cleaned;
     }

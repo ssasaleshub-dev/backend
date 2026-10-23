@@ -191,30 +191,35 @@ public class LeadImportServiceImpl implements LeadImportService {
     private Mono<Customer> resolveCustomer(ExcelLeadRowDTO row, String normalizedPhone, Instant createdTime) {
         return customerRepository.findByPhoneNumber(normalizedPhone)
             .flatMap(existing -> {
-                // Update customer info if name or location wasn't set
                 boolean changed = false;
-                if ((existing.getFullName() == null || existing.getFullName().isBlank()) && row.getFullName() != null) {
-                    existing.setFullName(row.getFullName());
+                if ((existing.getFullName() == null || existing.getFullName().isBlank() || "Customer".equalsIgnoreCase(existing.getFullName()))
+                    && row.getFullName() != null && !row.getFullName().isBlank()) {
+                    existing.setFullName(row.getFullName().trim());
                     changed = true;
                 }
-                if ((existing.getLocation() == null || existing.getLocation().isBlank()) && row.getLocation() != null) {
-                    existing.setLocation(row.getLocation());
+                if ((existing.getLocation() == null || existing.getLocation().isBlank())
+                    && row.getLocation() != null && !row.getLocation().isBlank()) {
+                    existing.setLocation(row.getLocation().trim());
                     changed = true;
                 }
-                if ((existing.getEmail() == null || existing.getEmail().isBlank()) && row.getEmail() != null) {
-                    existing.setEmail(row.getEmail());
+                if ((existing.getEmail() == null || existing.getEmail().isBlank())
+                    && row.getEmail() != null && !row.getEmail().isBlank()) {
+                    existing.setEmail(row.getEmail().trim());
                     changed = true;
                 }
                 return changed ? customerRepository.save(existing) : Mono.just(existing);
             })
             .switchIfEmpty(Mono.defer(() -> {
                 Customer newCustomer = new Customer();
-                newCustomer.setFullName(row.getFullName() != null ? row.getFullName() : "Customer");
+                String name = (row.getFullName() != null && !row.getFullName().isBlank())
+                    ? row.getFullName().trim()
+                    : "Customer";
+                newCustomer.setFullName(name);
                 newCustomer.setPhoneNumber(normalizedPhone);
                 newCustomer.setRawPhoneNumber(row.getPhoneNumber());
-                newCustomer.setLocation(row.getLocation());
-                newCustomer.setEmail(row.getEmail());
-                newCustomer.setCreatedAt(createdTime);
+                newCustomer.setLocation(row.getLocation() != null ? row.getLocation().trim() : null);
+                newCustomer.setEmail(row.getEmail() != null ? row.getEmail().trim() : null);
+                newCustomer.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 return customerRepository.save(newCustomer);
             }));
     }
@@ -229,10 +234,13 @@ public class LeadImportServiceImpl implements LeadImportService {
             .switchIfEmpty(Mono.defer(() -> {
                 Campaign campaign = new Campaign();
                 campaign.setExternalId(extId);
-                campaign.setName(row.getCampaignName() != null ? row.getCampaignName() : "Campaign " + extId);
+                String name = (row.getCampaignName() != null && !row.getCampaignName().isBlank())
+                    ? row.getCampaignName().trim()
+                    : "Campaign " + extId;
+                campaign.setName(name);
                 campaign.setStatus("ACTIVE");
-                campaign.setCreatedAt(createdTime);
-                campaign.setUpdatedAt(createdTime);
+                campaign.setCreatedAt(createdTime != null ? createdTime : Instant.now());
+                campaign.setUpdatedAt(createdTime != null ? createdTime : Instant.now());
                 return campaignRepository.save(campaign);
             }));
     }
@@ -244,12 +252,22 @@ public class LeadImportServiceImpl implements LeadImportService {
         }
 
         return adSetRepository.findByExternalId(extId)
+            .flatMap(existing -> {
+                if (existing.getCampaignId() == null && campaign != null && campaign.getId() != null) {
+                    existing.setCampaign(campaign);
+                    return adSetRepository.save(existing);
+                }
+                return Mono.just(existing);
+            })
             .switchIfEmpty(Mono.defer(() -> {
                 AdSet adSet = new AdSet();
                 adSet.setExternalId(extId);
-                adSet.setName(row.getAdsetName() != null ? row.getAdsetName() : "AdSet " + extId);
+                String name = (row.getAdsetName() != null && !row.getAdsetName().isBlank())
+                    ? row.getAdsetName().trim()
+                    : "AdSet " + extId;
+                adSet.setName(name);
                 adSet.setStatus("ACTIVE");
-                adSet.setCreatedAt(createdTime);
+                adSet.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 if (campaign != null && campaign.getId() != null) {
                     adSet.setCampaign(campaign);
                 }
@@ -264,12 +282,22 @@ public class LeadImportServiceImpl implements LeadImportService {
         }
 
         return adRepository.findByExternalId(extId)
+            .flatMap(existing -> {
+                if (existing.getAdSetId() == null && adSet != null && adSet.getId() != null) {
+                    existing.setAdSet(adSet);
+                    return adRepository.save(existing);
+                }
+                return Mono.just(existing);
+            })
             .switchIfEmpty(Mono.defer(() -> {
                 Ad ad = new Ad();
                 ad.setExternalId(extId);
-                ad.setName(row.getAdName() != null ? row.getAdName() : "Ad " + extId);
+                String name = (row.getAdName() != null && !row.getAdName().isBlank())
+                    ? row.getAdName().trim()
+                    : "Ad " + extId;
+                ad.setName(name);
                 ad.setStatus("ACTIVE");
-                ad.setCreatedAt(createdTime);
+                ad.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 if (adSet != null && adSet.getId() != null) {
                     ad.setAdSet(adSet);
                 }
@@ -287,9 +315,12 @@ public class LeadImportServiceImpl implements LeadImportService {
             .switchIfEmpty(Mono.defer(() -> {
                 LeadForm form = new LeadForm();
                 form.setExternalId(extId);
-                form.setName(row.getFormName() != null ? row.getFormName() : "Form " + extId);
+                String name = (row.getFormName() != null && !row.getFormName().isBlank())
+                    ? row.getFormName().trim()
+                    : "Form " + extId;
+                form.setName(name);
                 form.setStatus("ACTIVE");
-                form.setCreatedAt(createdTime);
+                form.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 return leadFormRepository.save(form);
             }));
     }
@@ -309,7 +340,16 @@ public class LeadImportServiceImpl implements LeadImportService {
             .flatMap(existing -> {
                 existing.setStatus(status);
                 existing.setUpdatedAt(Instant.now());
-                if (row.getLeadStatus() != null) {
+                if (customer != null && customer.getId() != null && existing.getCustomerId() == null) {
+                    existing.setCustomer(customer);
+                }
+                if (ad != null && ad.getId() != null && existing.getAdId() == null) {
+                    existing.setAd(ad);
+                }
+                if (leadForm != null && leadForm.getId() != null && existing.getLeadFormId() == null) {
+                    existing.setLeadForm(leadForm);
+                }
+                if (row.getLeadStatus() != null && !row.getLeadStatus().isBlank()) {
                     existing.setNotes("Updated via Excel import: " + row.getLeadStatus());
                 }
                 return leadRepository.save(existing);
@@ -317,13 +357,16 @@ public class LeadImportServiceImpl implements LeadImportService {
             .switchIfEmpty(Mono.defer(() -> {
                 Lead newLead = new Lead();
                 newLead.setExternalId(row.getId());
-                newLead.setCreatedTime(createdTime);
+                newLead.setCreatedTime(createdTime != null ? createdTime : Instant.now());
                 newLead.setIsOrganic(isOrganic);
                 newLead.setPlatform(platform);
                 newLead.setStatus(status);
-                newLead.setNotes("Imported from " + (row.getCampaignName() != null ? row.getCampaignName() : "Excel"));
-                newLead.setCreatedAt(createdTime);
-                newLead.setUpdatedAt(createdTime);
+                String campaignDesc = (row.getCampaignName() != null && !row.getCampaignName().isBlank())
+                    ? row.getCampaignName().trim()
+                    : "Meta Ads";
+                newLead.setNotes("Imported from " + campaignDesc);
+                newLead.setCreatedAt(createdTime != null ? createdTime : Instant.now());
+                newLead.setUpdatedAt(createdTime != null ? createdTime : Instant.now());
 
                 if (customer != null && customer.getId() != null) {
                     newLead.setCustomer(customer);
@@ -346,18 +389,18 @@ public class LeadImportServiceImpl implements LeadImportService {
 
         return leadPreferenceRepository.findOneByLeadId(lead.getId())
             .flatMap(existing -> {
-                existing.setVisaType(row.getVisaType());
-                existing.setAge(row.getAge());
-                existing.setEducationalQualification(row.getEducationalQualification());
-                existing.setAreYouInterested(row.getAreYouInterested());
-                existing.setAreYouWorking(row.getAreYouWorking());
-                existing.setLeadConfirm(row.getLeadConfirm());
+                if (row.getVisaType() != null && !row.getVisaType().isBlank()) existing.setVisaType(row.getVisaType());
+                if (row.getAge() != null && !row.getAge().isBlank()) existing.setAge(row.getAge());
+                if (row.getEducationalQualification() != null && !row.getEducationalQualification().isBlank()) existing.setEducationalQualification(row.getEducationalQualification());
+                if (row.getAreYouInterested() != null && !row.getAreYouInterested().isBlank()) existing.setAreYouInterested(row.getAreYouInterested());
+                if (row.getAreYouWorking() != null && !row.getAreYouWorking().isBlank()) existing.setAreYouWorking(row.getAreYouWorking());
+                if (row.getLeadConfirm() != null && !row.getLeadConfirm().isBlank()) existing.setLeadConfirm(row.getLeadConfirm());
 
                 // Legacy fields
-                existing.setMattressType(row.getMattressType());
-                existing.setMattressSize(row.getMattressSize());
-                existing.setBudgetRange(row.getPreferredBudget());
-                existing.setPurchaseTimeline(row.getPlanningToBuy());
+                if (row.getMattressType() != null && !row.getMattressType().isBlank()) existing.setMattressType(row.getMattressType());
+                if (row.getMattressSize() != null && !row.getMattressSize().isBlank()) existing.setMattressSize(row.getMattressSize());
+                if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) existing.setBudgetRange(row.getPreferredBudget());
+                if (row.getPlanningToBuy() != null && !row.getPlanningToBuy().isBlank()) existing.setPurchaseTimeline(row.getPlanningToBuy());
                 return leadPreferenceRepository.save(existing).thenReturn(lead);
             })
             .switchIfEmpty(Mono.defer(() -> {

@@ -25,6 +25,24 @@ public class LeadImportResultDTO implements Serializable {
         this.fileName = fileName;
     }
 
+    public LeadImportResultDTO(
+        String fileName,
+        int totalRowsProcessed,
+        int successfulRows,
+        int failedRows,
+        long executionTimeMs,
+        List<String> importedLeadExternalIds,
+        List<String> errors
+    ) {
+        this.fileName = fileName;
+        this.totalRowsProcessed = totalRowsProcessed;
+        this.successfulRows = successfulRows;
+        this.failedRows = failedRows;
+        this.executionTimeMs = executionTimeMs;
+        this.importedLeadExternalIds = importedLeadExternalIds != null ? importedLeadExternalIds : new ArrayList<>();
+        this.errors = errors != null ? errors : new ArrayList<>();
+    }
+
     public static LeadImportResultDTO create(String fileName) {
         return new LeadImportResultDTO(fileName);
     }
