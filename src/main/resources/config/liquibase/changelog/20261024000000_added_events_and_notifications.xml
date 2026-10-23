@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261024000000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="crm_events_reminders"/>
+            </not>
+        </preConditions>
+        <createTable tableName="crm_events_reminders">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="clob">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_time" type="time">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_type" type="varchar(50)" defaultValue="REMINDER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="priority" type="varchar(20)" defaultValue="MEDIUM">
+                <constraints nullable="false"/>
+            </column>
+            <column name="candidate_id" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="candidate_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_completed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="notification_sent" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="remind_before_minutes" type="int" defaultValueNumeric="15">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261024000000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="crm_notifications"/>
+            </not>
+        </preConditions>
+        <createTable tableName="crm_notifications">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="clob">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reference_id" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="reference_type" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_read" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="read_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="scheduled_for" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

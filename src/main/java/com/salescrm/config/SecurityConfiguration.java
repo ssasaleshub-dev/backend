@@ -82,6 +82,8 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/messages/**").permitAll()
                     .pathMatchers("/api/chat/**").permitAll()
                     .pathMatchers("/api/files/**").permitAll()
+                    .pathMatchers("/api/events/**").permitAll()
+                    .pathMatchers("/api/notifications/**").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/**").authenticated()
