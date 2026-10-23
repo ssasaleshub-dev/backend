@@ -88,10 +88,10 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 dto.setPlatform(getCellValue(row, headerMap, "platform", "publisher_platform"));
 
                 // Contact info with first/last name fallback
-                String fullName = getCellValue(row, headerMap, "full_name", "name", "customer_name");
+                String fullName = getCellValue(row, headerMap, "full_name", "customer_name", "contact_name");
                 if (fullName == null || fullName.isBlank()) {
-                    String firstName = getCellValue(row, headerMap, "first_name");
-                    String lastName = getCellValue(row, headerMap, "last_name");
+                    String firstName = getCellValue(row, headerMap, "first_name", "firstname");
+                    String lastName = getCellValue(row, headerMap, "last_name", "lastname");
                     fullName = (firstName + " " + lastName).trim();
                 }
                 dto.setFullName(fullName);
@@ -105,7 +105,7 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 dto.setLocation(cityVal);
 
                 // Visa & Education details
-                String explicitVisa = getCellValue(row, headerMap, "visa_type", "visa type", "visa", "category");
+                String explicitVisa = getCellValue(row, headerMap, "visa_type", "visa_desk");
                 if (explicitVisa != null && !explicitVisa.isBlank()) {
                     dto.setVisaType(explicitVisa);
                 } else {
@@ -113,8 +113,8 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 }
 
                 dto.setAge(getCellValue(row, headerMap, "age"));
-                dto.setCurrentStatus(getCellValue(row, headerMap, "what_is_your_current_status?", "what_is_your_current_status", "current_status"));
-                dto.setCgpaOrPercentage(getCellValue(row, headerMap, "what_is_your_cgpa_or_current_percentage?", "what_is_your_cgpa_or_current_percentage", "cgpa", "percentage"));
+                dto.setCurrentStatus(getCellValue(row, headerMap, "what_is_your_current_status?", "what_is_your_current_status", "what_is_your_status?", "current_status"));
+                dto.setCgpaOrPercentage(getCellValue(row, headerMap, "what_is_your_ug_cgpa_or_percentage?", "what_is_your_cgpa_or_current_percentage?", "what_is_your_cgpa_or_percentage?", "ug_cgpa", "cgpa", "percentage"));
                 dto.setEducationalQualification(getCellValue(row, headerMap, "educational_qualification", "education", "qualification"));
                 dto.setAreYouInterested(getCellValue(row, headerMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
                 dto.setAreYouWorking(getCellValue(row, headerMap, "are_you_currently_working", "are_you_working"));
@@ -147,7 +147,10 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                             return date.toInstant().toString();
                         }
                     }
-                    return dataFormatter.formatCellValue(cell).trim();
+                    String val = dataFormatter.formatCellValue(cell).trim();
+                    if (!val.isEmpty()) {
+                        return val;
+                    }
                 }
             }
         }

@@ -87,10 +87,10 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             dto.setPlatform(getValue(values, headerMap, "platform", "publisher_platform"));
 
             // Contact info with first/last name fallback
-            String fullName = getValue(values, headerMap, "full_name", "name", "customer_name");
+            String fullName = getValue(values, headerMap, "full_name", "customer_name", "contact_name");
             if (fullName == null || fullName.isBlank()) {
-                String firstName = getValue(values, headerMap, "first_name");
-                String lastName = getValue(values, headerMap, "last_name");
+                String firstName = getValue(values, headerMap, "first_name", "firstname");
+                String lastName = getValue(values, headerMap, "last_name", "lastname");
                 fullName = (firstName + " " + lastName).trim();
             }
             dto.setFullName(fullName);
@@ -104,7 +104,7 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             dto.setLocation(cityVal);
 
             // Visa & Education details
-            String explicitVisa = getValue(values, headerMap, "visa_type", "visa type", "visa", "category");
+            String explicitVisa = getValue(values, headerMap, "visa_type", "visa_desk");
             if (explicitVisa != null && !explicitVisa.isBlank()) {
                 dto.setVisaType(explicitVisa);
             } else {
@@ -112,8 +112,8 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             }
 
             dto.setAge(getValue(values, headerMap, "age"));
-            dto.setCurrentStatus(getValue(values, headerMap, "what_is_your_current_status?", "what_is_your_current_status", "current_status"));
-            dto.setCgpaOrPercentage(getValue(values, headerMap, "what_is_your_cgpa_or_current_percentage?", "what_is_your_cgpa_or_current_percentage", "cgpa", "percentage"));
+            dto.setCurrentStatus(getValue(values, headerMap, "what_is_your_current_status?", "what_is_your_current_status", "what_is_your_status?", "current_status"));
+            dto.setCgpaOrPercentage(getValue(values, headerMap, "what_is_your_ug_cgpa_or_percentage?", "what_is_your_cgpa_or_current_percentage?", "what_is_your_cgpa_or_percentage?", "ug_cgpa", "cgpa", "percentage"));
             dto.setEducationalQualification(getValue(values, headerMap, "educational_qualification", "education", "qualification"));
             dto.setAreYouInterested(getValue(values, headerMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
             dto.setAreYouWorking(getValue(values, headerMap, "are_you_currently_working", "are_you_working"));
@@ -238,7 +238,9 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             Integer idx = headerMap.get(norm);
             if (idx != null && idx < values.size()) {
                 String val = values.get(idx);
-                return val != null ? val.trim() : "";
+                if (val != null && !val.trim().isEmpty()) {
+                    return val.trim();
+                }
             }
         }
         return "";

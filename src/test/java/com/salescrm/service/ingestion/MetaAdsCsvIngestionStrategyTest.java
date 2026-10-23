@@ -92,4 +92,22 @@ class MetaAdsCsvIngestionStrategyTest {
         assertThat(rows.get(0).getFullName()).isEqualTo("Praveen Selvaraj");
         assertThat(rows.get(0).getVisaType()).isEqualTo("WORK_VISA");
     }
+
+    @Test
+    void shouldParseActualGoogleSheetCsv() throws Exception {
+        InputStream in = getClass().getResourceAsStream("/data/meta_ads_google_sheet.csv");
+        assertThat(in).isNotNull();
+
+        List<ExcelLeadRowDTO> rows = strategy.parse(in);
+        assertThat(rows).hasSize(10);
+
+        ExcelLeadRowDTO first = rows.get(0);
+        assertThat(first.getId()).isEqualTo("1853515339157752");
+        assertThat(first.getPhoneNumber()).contains("8220699044");
+        assertThat(first.getEmail()).isEqualTo("jpoovarasan63@gmail.com");
+        assertThat(first.getCity()).isEqualTo("Coimbatore");
+        assertThat(first.getCurrentStatus()).isEqualTo("completed_ug");
+        assertThat(first.getCgpaOrPercentage()).contains("65");
+        assertThat(first.getVisaType()).isEqualTo("WORK_VISA");
+    }
 }

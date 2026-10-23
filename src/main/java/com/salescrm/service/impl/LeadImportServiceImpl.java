@@ -469,13 +469,14 @@ public class LeadImportServiceImpl implements LeadImportService {
             return null;
         }
         String lower = raw.trim().toLowerCase();
-        if (lower.equals("completed_ug") || lower.contains("completed ug")) {
+        String norm = lower.replace("-", " ").replace("_", " ");
+        if (norm.contains("completed ug") || norm.contains("bachelor") || norm.contains("graduate")) {
             return "Bachelor Degree / UG Graduate";
         }
-        if (lower.equals("finallyear_ug_student") || lower.contains("final year") || lower.contains("finallyear")) {
+        if (norm.contains("final year") || norm.contains("finallyear")) {
             return "Final Year UG Student";
         }
-        if (lower.equals("other")) {
+        if (norm.contains("other")) {
             return "Other";
         }
         return raw.trim();

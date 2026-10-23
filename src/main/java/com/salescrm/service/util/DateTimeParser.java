@@ -36,10 +36,18 @@ public class DateTimeParser {
         DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"),
         DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"),
         DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+        DateTimeFormatter.ofPattern("M/d/yy"),
+        DateTimeFormatter.ofPattern("MM/dd/yy"),
+        DateTimeFormatter.ofPattern("M/d/yyyy"),
+        DateTimeFormatter.ofPattern("MM/dd/yyyy"),
+        DateTimeFormatter.ofPattern("d/M/yy"),
+        DateTimeFormatter.ofPattern("dd/MM/yy"),
+        DateTimeFormatter.ofPattern("d/M/yyyy"),
+        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+        DateTimeFormatter.ofPattern("M-d-yy"),
         DateTimeFormatter.ofPattern("MM-dd-yy"),
         DateTimeFormatter.ofPattern("dd-MM-yyyy"),
-        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-        DateTimeFormatter.ofPattern("MM/dd/yyyy")
+        DateTimeFormatter.ofPattern("d-M-yy")
     };
 
     /**
