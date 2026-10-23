@@ -33,6 +33,25 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public Mono<CustomerDTO> save(CustomerDTO customerDTO) {
         LOG.debug("Request to save Customer : {}", customerDTO);
+        if (customerDTO.getPhoneNumber() != null && !customerDTO.getPhoneNumber().isBlank()) {
+            String cleanPhone = customerDTO.getPhoneNumber().trim();
+            return customerRepository
+                .findByPhoneNumber(cleanPhone)
+                .switchIfEmpty(
+                    Mono.defer(() -> {
+                        if (customerDTO.getEmail() != null && !customerDTO.getEmail().isBlank()) {
+                            return customerRepository.findByEmail(customerDTO.getEmail().trim().toLowerCase());
+                        }
+                        return Mono.empty();
+                    })
+                )
+                .flatMap(existingCustomer -> {
+                    customerMapper.partialUpdate(existingCustomer, customerDTO);
+                    return customerRepository.save(existingCustomer);
+                })
+                .switchIfEmpty(Mono.defer(() -> customerRepository.save(customerMapper.toEntity(customerDTO))))
+                .map(customerMapper::toDto);
+        }
         return customerRepository.save(customerMapper.toEntity(customerDTO)).map(customerMapper::toDto);
     }
 

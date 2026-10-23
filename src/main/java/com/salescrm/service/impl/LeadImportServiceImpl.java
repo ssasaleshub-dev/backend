@@ -189,7 +189,16 @@ public class LeadImportServiceImpl implements LeadImportService {
     }
 
     private Mono<Customer> resolveCustomer(ExcelLeadRowDTO row, String normalizedPhone, Instant createdTime) {
-        return customerRepository.findByPhoneNumber(normalizedPhone)
+        String normalizedEmail = (row.getEmail() != null && !row.getEmail().isBlank())
+            ? row.getEmail().trim().toLowerCase()
+            : null;
+
+        Mono<Customer> customerLookup = customerRepository.findByPhoneNumber(normalizedPhone);
+        if (normalizedEmail != null) {
+            customerLookup = customerLookup.switchIfEmpty(customerRepository.findByEmail(normalizedEmail));
+        }
+
+        return customerLookup
             .flatMap(existing -> {
                 boolean changed = false;
                 if ((existing.getFullName() == null || existing.getFullName().isBlank() || "Customer".equalsIgnoreCase(existing.getFullName()))
@@ -202,9 +211,8 @@ public class LeadImportServiceImpl implements LeadImportService {
                     existing.setLocation(row.getLocation().trim());
                     changed = true;
                 }
-                if ((existing.getEmail() == null || existing.getEmail().isBlank())
-                    && row.getEmail() != null && !row.getEmail().isBlank()) {
-                    existing.setEmail(row.getEmail().trim());
+                if ((existing.getEmail() == null || existing.getEmail().isBlank()) && normalizedEmail != null) {
+                    existing.setEmail(normalizedEmail);
                     changed = true;
                 }
                 return changed ? customerRepository.save(existing) : Mono.just(existing);
@@ -218,7 +226,7 @@ public class LeadImportServiceImpl implements LeadImportService {
                 newCustomer.setPhoneNumber(normalizedPhone);
                 newCustomer.setRawPhoneNumber(row.getPhoneNumber());
                 newCustomer.setLocation(row.getLocation() != null ? row.getLocation().trim() : null);
-                newCustomer.setEmail(row.getEmail() != null ? row.getEmail().trim() : null);
+                newCustomer.setEmail(normalizedEmail);
                 newCustomer.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 return customerRepository.save(newCustomer);
             }));
@@ -336,6 +344,24 @@ public class LeadImportServiceImpl implements LeadImportService {
         LeadStatus status = parseStatus(row.getLeadStatus());
         boolean isOrganic = parseOrganic(row.getIsOrganic());
 
+        String campaignDesc = (row.getCampaignName() != null && !row.getCampaignName().isBlank())
+            ? row.getCampaignName().trim()
+            : "Meta Ads";
+        StringBuilder notesBuilder = new StringBuilder("Imported from ").append(campaignDesc);
+        if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
+            notesBuilder.append(" | CGPA/Percentage: ").append(row.getCgpaOrPercentage().trim());
+        }
+        String eduQual = mapEducationalQualification(
+            row.getCurrentStatus() != null && !row.getCurrentStatus().isBlank()
+                ? row.getCurrentStatus()
+                : row.getEducationalQualification()
+        );
+        if (eduQual != null && !eduQual.isBlank()) {
+            notesBuilder.append(" | Qualification: ").append(eduQual);
+        }
+
+        final String formattedNotes = notesBuilder.toString();
+
         return leadRepository.findByExternalId(row.getId())
             .flatMap(existing -> {
                 existing.setStatus(status);
@@ -349,8 +375,8 @@ public class LeadImportServiceImpl implements LeadImportService {
                 if (leadForm != null && leadForm.getId() != null && existing.getLeadFormId() == null) {
                     existing.setLeadForm(leadForm);
                 }
-                if (row.getLeadStatus() != null && !row.getLeadStatus().isBlank()) {
-                    existing.setNotes("Updated via Excel import: " + row.getLeadStatus());
+                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
+                    existing.setNotes(formattedNotes);
                 }
                 return leadRepository.save(existing);
             })
@@ -361,10 +387,7 @@ public class LeadImportServiceImpl implements LeadImportService {
                 newLead.setIsOrganic(isOrganic);
                 newLead.setPlatform(platform);
                 newLead.setStatus(status);
-                String campaignDesc = (row.getCampaignName() != null && !row.getCampaignName().isBlank())
-                    ? row.getCampaignName().trim()
-                    : "Meta Ads";
-                newLead.setNotes("Imported from " + campaignDesc);
+                newLead.setNotes(formattedNotes);
                 newLead.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 newLead.setUpdatedAt(createdTime != null ? createdTime : Instant.now());
 
@@ -387,14 +410,25 @@ public class LeadImportServiceImpl implements LeadImportService {
             return Mono.justOrEmpty(lead);
         }
 
+        String eduQual = mapEducationalQualification(
+            row.getCurrentStatus() != null && !row.getCurrentStatus().isBlank()
+                ? row.getCurrentStatus()
+                : row.getEducationalQualification()
+        );
+
         return leadPreferenceRepository.findOneByLeadId(lead.getId())
             .flatMap(existing -> {
                 if (row.getVisaType() != null && !row.getVisaType().isBlank()) existing.setVisaType(row.getVisaType());
                 if (row.getAge() != null && !row.getAge().isBlank()) existing.setAge(row.getAge());
-                if (row.getEducationalQualification() != null && !row.getEducationalQualification().isBlank()) existing.setEducationalQualification(row.getEducationalQualification());
+                if (eduQual != null && !eduQual.isBlank()) existing.setEducationalQualification(eduQual);
                 if (row.getAreYouInterested() != null && !row.getAreYouInterested().isBlank()) existing.setAreYouInterested(row.getAreYouInterested());
                 if (row.getAreYouWorking() != null && !row.getAreYouWorking().isBlank()) existing.setAreYouWorking(row.getAreYouWorking());
                 if (row.getLeadConfirm() != null && !row.getLeadConfirm().isBlank()) existing.setLeadConfirm(row.getLeadConfirm());
+
+                // Store CGPA or budget
+                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
+                    existing.setBudgetRange(row.getCgpaOrPercentage().trim());
+                }
 
                 // Legacy fields
                 if (row.getMattressType() != null && !row.getMattressType().isBlank()) existing.setMattressType(row.getMattressType());
@@ -408,41 +442,81 @@ public class LeadImportServiceImpl implements LeadImportService {
                 pref.setLead(lead);
                 pref.setVisaType(row.getVisaType());
                 pref.setAge(row.getAge());
-                pref.setEducationalQualification(row.getEducationalQualification());
+                pref.setEducationalQualification(eduQual);
                 pref.setAreYouInterested(row.getAreYouInterested());
                 pref.setAreYouWorking(row.getAreYouWorking());
                 pref.setLeadConfirm(row.getLeadConfirm());
 
+                // Store CGPA or budget
+                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
+                    pref.setBudgetRange(row.getCgpaOrPercentage().trim());
+                }
+
                 // Legacy fields
                 pref.setMattressType(row.getMattressType());
                 pref.setMattressSize(row.getMattressSize());
-                pref.setBudgetRange(row.getPreferredBudget());
+                if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) {
+                    pref.setBudgetRange(row.getPreferredBudget());
+                }
                 pref.setPurchaseTimeline(row.getPlanningToBuy());
                 pref.setCreatedAt(lead.getCreatedTime() != null ? lead.getCreatedTime() : Instant.now());
                 return leadPreferenceRepository.save(pref).thenReturn(lead);
             }));
     }
 
-    private PlatformType parsePlatform(String raw) {
-        if (raw == null) {
-            return PlatformType.OTHER;
+    private String mapEducationalQualification(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
         }
-        String p = raw.trim().toLowerCase();
-        if (p.contains("ig") || p.contains("instagram")) {
+        String lower = raw.trim().toLowerCase();
+        if (lower.equals("completed_ug") || lower.contains("completed ug")) {
+            return "Bachelor Degree / UG Graduate";
+        }
+        if (lower.equals("finallyear_ug_student") || lower.contains("final year") || lower.contains("finallyear")) {
+            return "Final Year UG Student";
+        }
+        if (lower.equals("other")) {
+            return "Other";
+        }
+        return raw.trim();
+    }
+
+    private PlatformType parsePlatform(String raw) {
+        if (raw == null || raw.isBlank()) {
             return PlatformType.IG;
         }
+        String p = raw.trim().toLowerCase();
         if (p.contains("fb") || p.contains("facebook")) {
             return PlatformType.FB;
+        }
+        if (p.contains("ig") || p.contains("instagram")) {
+            return PlatformType.IG;
         }
         if (p.contains("whatsapp") || p.contains("wa")) {
             return PlatformType.WHATSAPP;
         }
-        return PlatformType.OTHER;
+        return PlatformType.IG;
     }
 
     private LeadStatus parseStatus(String raw) {
-        if (raw == null) {
+        if (raw == null || raw.isBlank()) {
             return LeadStatus.CREATED;
+        }
+        String r = raw.trim().toLowerCase();
+        if (r.contains("complete") || r.contains("created") || r.contains("new")) {
+            return LeadStatus.CREATED;
+        }
+        if (r.contains("contact")) {
+            return LeadStatus.CONTACTED;
+        }
+        if (r.contains("qualif")) {
+            return LeadStatus.QUALIFIED;
+        }
+        if (r.contains("convert")) {
+            return LeadStatus.CONVERTED;
+        }
+        if (r.contains("lost")) {
+            return LeadStatus.LOST;
         }
         try {
             return LeadStatus.valueOf(raw.trim().toUpperCase());

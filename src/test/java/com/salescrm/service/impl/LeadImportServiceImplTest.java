@@ -129,6 +129,7 @@ class LeadImportServiceImplTest {
         savedPref.setLead(savedLead);
 
         when(customerRepository.findByPhoneNumber("+916385888585")).thenReturn(Mono.empty());
+        when(customerRepository.findByEmail("praveenselvaraj@gmail.com")).thenReturn(Mono.empty());
         when(customerRepository.save(any(Customer.class))).thenReturn(Mono.just(savedCustomer));
 
         when(campaignRepository.findByExternalId("c:12024583561")).thenReturn(Mono.empty());
@@ -219,6 +220,77 @@ class LeadImportServiceImplTest {
         assertThat(result).isNotNull();
         assertThat(result.getSuccessfulRows()).isEqualTo(1);
         verify(customerRepository, never()).save(any(Customer.class));
+    }
+
+    @Test
+    void shouldDeduplicateAndReuseCustomerByEmail() {
+        ExcelLeadRowDTO row = new ExcelLeadRowDTO();
+        row.setRowNumber(2);
+        row.setId("l:99999");
+        row.setPhoneNumber("9025099944");
+        row.setEmail("user@example.com");
+        row.setFullName("Email Matched User");
+
+        Customer existingCustomer = new Customer();
+        existingCustomer.setId(8L);
+        existingCustomer.setFullName("Email Matched User");
+        existingCustomer.setPhoneNumber("+919025099944");
+        existingCustomer.setEmail("user@example.com");
+
+        Lead savedLead = new Lead();
+        savedLead.setId(88L);
+        savedLead.setExternalId("l:99999");
+
+        when(customerRepository.findByPhoneNumber("+919025099944")).thenReturn(Mono.empty());
+        when(customerRepository.findByEmail("user@example.com")).thenReturn(Mono.just(existingCustomer));
+        when(leadRepository.findByExternalId("l:99999")).thenReturn(Mono.empty());
+        when(leadRepository.save(any(Lead.class))).thenReturn(Mono.just(savedLead));
+        when(leadPreferenceRepository.findOneByLeadId(88L)).thenReturn(Mono.empty());
+        when(leadPreferenceRepository.save(any(LeadPreference.class))).thenReturn(Mono.just(new LeadPreference()));
+
+        LeadImportResultDTO result = service.importRows("test.csv", List.of(row)).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getSuccessfulRows()).isEqualTo(1);
+        verify(customerRepository, never()).save(any(Customer.class));
+    }
+
+    @Test
+    void shouldMapEducationalQualificationSurveyQuestions() {
+        ExcelLeadRowDTO row = new ExcelLeadRowDTO();
+        row.setRowNumber(2);
+        row.setId("l:88888");
+        row.setPhoneNumber("9025099944");
+        row.setCurrentStatus("completed_ug");
+        row.setCgpaOrPercentage("60-70% / 6.0-7.0 CGPA");
+
+        Customer savedCustomer = new Customer();
+        savedCustomer.setId(9L);
+
+        Lead savedLead = new Lead();
+        savedLead.setId(99L);
+        savedLead.setExternalId("l:88888");
+
+        when(customerRepository.findByPhoneNumber("+919025099944")).thenReturn(Mono.just(savedCustomer));
+        when(leadRepository.findByExternalId("l:88888")).thenReturn(Mono.empty());
+        when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> {
+            Lead leadArg = invocation.getArgument(0);
+            assertThat(leadArg.getNotes()).contains("CGPA/Percentage: 60-70% / 6.0-7.0 CGPA");
+            assertThat(leadArg.getNotes()).contains("Qualification: Bachelor Degree / UG Graduate");
+            return Mono.just(savedLead);
+        });
+        when(leadPreferenceRepository.findOneByLeadId(99L)).thenReturn(Mono.empty());
+        when(leadPreferenceRepository.save(any(LeadPreference.class))).thenAnswer(invocation -> {
+            LeadPreference prefArg = invocation.getArgument(0);
+            assertThat(prefArg.getEducationalQualification()).isEqualTo("Bachelor Degree / UG Graduate");
+            assertThat(prefArg.getBudgetRange()).isEqualTo("60-70% / 6.0-7.0 CGPA");
+            return Mono.just(prefArg);
+        });
+
+        LeadImportResultDTO result = service.importRows("test.csv", List.of(row)).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getSuccessfulRows()).isEqualTo(1);
     }
 
     @Test

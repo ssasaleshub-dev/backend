@@ -42,6 +42,8 @@ public class ExcelLeadRowDTO implements Serializable {
     private String visaType;
     private String age;
     private String educationalQualification;
+    private String currentStatus;
+    private String cgpaOrPercentage;
     private String areYouInterested;
     private String areYouWorking;
     private String city;
@@ -290,6 +292,22 @@ public class ExcelLeadRowDTO implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getCurrentStatus() {
+        return currentStatus;
+    }
+
+    public void setCurrentStatus(String currentStatus) {
+        this.currentStatus = currentStatus;
+    }
+
+    public String getCgpaOrPercentage() {
+        return cgpaOrPercentage;
+    }
+
+    public void setCgpaOrPercentage(String cgpaOrPercentage) {
+        this.cgpaOrPercentage = cgpaOrPercentage;
     }
 
     @Override

@@ -56,6 +56,14 @@ class DateTimeParserTest {
     }
 
     @Test
+    void shouldParseTwoDigitYearFormat() {
+        String input = "10-18-24 12:52:17";
+        Instant parsed = dateTimeParser.parse(input);
+        assertThat(parsed).isNotNull();
+        assertThat(parsed.toString()).isEqualTo("2024-10-18T12:52:17Z");
+    }
+
+    @Test
     void shouldFallbackGracefullyOnNullOrBlank() {
         Instant now = Instant.now();
         Instant parsedNull = dateTimeParser.parse(null);

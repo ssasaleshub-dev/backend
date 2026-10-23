@@ -113,6 +113,8 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 }
 
                 dto.setAge(getCellValue(row, headerMap, "age"));
+                dto.setCurrentStatus(getCellValue(row, headerMap, "what_is_your_current_status?", "what_is_your_current_status", "current_status"));
+                dto.setCgpaOrPercentage(getCellValue(row, headerMap, "what_is_your_cgpa_or_current_percentage?", "what_is_your_cgpa_or_current_percentage", "cgpa", "percentage"));
                 dto.setEducationalQualification(getCellValue(row, headerMap, "educational_qualification", "education", "qualification"));
                 dto.setAreYouInterested(getCellValue(row, headerMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
                 dto.setAreYouWorking(getCellValue(row, headerMap, "are_you_currently_working", "are_you_working"));

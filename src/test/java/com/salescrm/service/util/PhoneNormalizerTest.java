@@ -26,9 +26,13 @@ class PhoneNormalizerTest {
     }
 
     @Test
-    void shouldRemoveWhitespaceHyphensParenthesesAndDots() {
+    void shouldEnsurePlus91FormatForIndianNumbers() {
+        assertThat(phoneNormalizer.normalize("9025099944")).isEqualTo("+919025099944");
+        assertThat(phoneNormalizer.normalize("09025099944")).isEqualTo("+919025099944");
+        assertThat(phoneNormalizer.normalize("919025099944")).isEqualTo("+919025099944");
+        assertThat(phoneNormalizer.normalize("p:9025099944")).isEqualTo("+919025099944");
         assertThat(phoneNormalizer.normalize(" +91 (638) 588-8585 ")).isEqualTo("+916385888585");
-        assertThat(phoneNormalizer.normalize("91.6385.888585")).isEqualTo("916385888585");
+        assertThat(phoneNormalizer.normalize("91.6385.888585")).isEqualTo("+916385888585");
     }
 
     @Test

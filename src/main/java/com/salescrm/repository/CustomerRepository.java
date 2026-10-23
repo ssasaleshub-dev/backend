@@ -17,6 +17,8 @@ public interface CustomerRepository extends ReactiveCrudRepository<Customer, Lon
 
     Mono<Customer> findByPhoneNumber(String phoneNumber);
 
+    Mono<Customer> findByEmail(String email);
+
     @Override
     <S extends Customer> Mono<S> save(S entity);
 

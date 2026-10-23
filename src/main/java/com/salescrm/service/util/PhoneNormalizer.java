@@ -35,6 +35,33 @@ public class PhoneNormalizer {
         // Remove whitespace, hyphens, parentheses, and dots
         cleaned = cleaned.replaceAll("[\\s\\-\\(\\)\\.]", "");
 
-        return cleaned;
+        if (cleaned.isEmpty()) {
+            return "";
+        }
+
+        // Extract pure digits
+        String digitsOnly = cleaned.replaceAll("[^0-9]", "");
+
+        // If string already started with '+', preserve international format
+        if (cleaned.startsWith("+")) {
+            return "+" + digitsOnly;
+        }
+
+        // If 10 digits (e.g. 9025099944), prepend +91
+        if (digitsOnly.length() == 10) {
+            return "+91" + digitsOnly;
+        }
+
+        // If 11 digits starting with 0 (e.g. 09025099944), replace leading 0 with +91
+        if (digitsOnly.length() == 11 && digitsOnly.startsWith("0")) {
+            return "+91" + digitsOnly.substring(1);
+        }
+
+        // If 12 digits starting with 91 (e.g. 919025099944), prepend +
+        if (digitsOnly.length() == 12 && digitsOnly.startsWith("91")) {
+            return "+" + digitsOnly;
+        }
+
+        return "+" + digitsOnly;
     }
 }
