@@ -7,6 +7,9 @@ public enum LeadStatus {
     CREATED,
     CONTACTED,
     QUALIFIED,
+    PROPOSAL_SENT,
+    NEGOTIATION,
     CONVERTED,
+    WON,
     LOST,
 }

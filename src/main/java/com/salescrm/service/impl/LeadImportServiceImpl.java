@@ -504,6 +504,15 @@ public class LeadImportServiceImpl implements LeadImportService {
             return LeadStatus.CREATED;
         }
         String r = raw.trim().toLowerCase();
+        if (r.contains("proposal") || r.contains("doc")) {
+            return LeadStatus.PROPOSAL_SENT;
+        }
+        if (r.contains("negotiat") || r.contains("process")) {
+            return LeadStatus.NEGOTIATION;
+        }
+        if (r.contains("won") || r.contains("approved") || r.contains("enrolled")) {
+            return LeadStatus.WON;
+        }
         if (r.contains("complete") || r.contains("created") || r.contains("new")) {
             return LeadStatus.CREATED;
         }

@@ -30,7 +30,7 @@
       "fieldName": "status",
       "fieldType": "LeadStatus",
       "fieldValidateRules": ["required"],
-      "fieldValues": "CREATED,CONTACTED,QUALIFIED,CONVERTED,LOST"
+      "fieldValues": "CREATED,CONTACTED,QUALIFIED,PROPOSAL_SENT,NEGOTIATION,CONVERTED,WON,LOST"
     },
     {
       "fieldName": "notes",
