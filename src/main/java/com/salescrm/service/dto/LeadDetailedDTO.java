@@ -14,6 +14,7 @@ public class LeadDetailedDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Long id;
+    private String encryptedId;
     private String externalId;
     private Instant createdTime;
     private Boolean isOrganic;
@@ -349,5 +350,16 @@ public class LeadDetailedDTO implements Serializable {
 
     public void setAssignedTo(String assignedTo) {
         this.assignedTo = assignedTo;
+    }
+
+    public String getEncryptedId() {
+        if (encryptedId != null) {
+            return encryptedId;
+        }
+        return id != null ? com.salescrm.service.util.LeadIdCrypto.encrypt(id) : null;
+    }
+
+    public void setEncryptedId(String encryptedId) {
+        this.encryptedId = encryptedId;
     }
 }

@@ -50,9 +50,13 @@ public class LeadManagementResource {
      * @return the detailed lead
      */
     @GetMapping("/detailed/{id}")
-    public Mono<ResponseEntity<LeadDetailedDTO>> getDetailedLead(@PathVariable Long id) {
+    public Mono<ResponseEntity<LeadDetailedDTO>> getDetailedLead(@PathVariable String id) {
+        Long leadId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (leadId == null) {
+            return Mono.just(ResponseEntity.notFound().build());
+        }
         LOG.debug("REST request to get detailed lead: {}", id);
-        return leadDetailedService.findDetailedById(id)
+        return leadDetailedService.findDetailedById(leadId)
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -66,11 +70,15 @@ public class LeadManagementResource {
      */
     @PatchMapping("/{id}/status")
     public Mono<ResponseEntity<LeadDetailedDTO>> updateLeadStatus(
-        @PathVariable Long id,
+        @PathVariable String id,
         @Valid @RequestBody LeadStatusUpdateDTO updateDTO
     ) {
         LOG.debug("REST request to update status for lead {}: {}", id, updateDTO.getStatus());
-        return leadDetailedService.updateStatus(id, updateDTO.getStatus(), updateDTO.getNotes())
+        Long leadId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (leadId == null) {
+            return Mono.just(ResponseEntity.notFound().build());
+        }
+        return leadDetailedService.updateStatus(leadId, updateDTO.getStatus(), updateDTO.getNotes())
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -84,12 +92,16 @@ public class LeadManagementResource {
      */
     @PatchMapping("/{id}/assign")
     public Mono<ResponseEntity<LeadDetailedDTO>> assignLead(
-        @PathVariable Long id,
+        @PathVariable String id,
         @RequestBody java.util.Map<String, String> payload
     ) {
         String assignedTo = payload != null ? payload.get("assignedTo") : null;
         LOG.debug("REST request to assign lead {} to staff {}", id, assignedTo);
-        return leadDetailedService.updateAssignment(id, assignedTo)
+        Long leadId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (leadId == null) {
+            return Mono.just(ResponseEntity.notFound().build());
+        }
+        return leadDetailedService.updateAssignment(leadId, assignedTo)
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
