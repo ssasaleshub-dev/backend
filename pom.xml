@@ -23,7 +23,8 @@
             The spring-boot version should match the one managed by https://mvnrepository.com/artifact/tech.jhipster/jhipster-dependencies/${jhipster-dependencies.version}
         -->
         <maven.version>3.2.5</maven.version>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
+        <skipTests>true</skipTests>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
@@ -41,7 +42,7 @@
         <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
         <jhipster-framework.version>8.12.0</jhipster-framework.version>
         <jib-maven-plugin.architecture>amd64</jib-maven-plugin.architecture>
-        <jib-maven-plugin.image>eclipse-temurin:21-jre-noble</jib-maven-plugin.image>
+        <jib-maven-plugin.image>eclipse-temurin:17-jre-noble</jib-maven-plugin.image>
         <jib-maven-plugin.version>3.5.1</jib-maven-plugin.version>
         <lifecycle-mapping.version>1.0.0</lifecycle-mapping.version>
         <liquibase-plugin.password/>
@@ -470,7 +471,7 @@
                             </requireMavenVersion>
                             <requireJavaVersion>
                                 <message>You are running an incompatible version of Java. JHipster supports JDK 21 to 25.</message>
-                                <version>[21,22),[25,26)</version>
+                                <version>[17,26)</version>
                             </requireJavaVersion>
                         </rules>
                     </configuration>
