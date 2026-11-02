@@ -305,6 +305,7 @@
 
     <build>
         <defaultGoal>spring-boot:run</defaultGoal>
+        <finalName>app</finalName>
         <resources>
             <resource>
                 <directory>${basedir}/src/main/resources/</directory>

@@ -6,9 +6,9 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +43,9 @@ public class FirebaseConfiguration {
                 if (serviceAccount == null) {
                     String envPath = System.getenv("FIREBASE_CREDENTIALS_PATH");
                     if (envPath != null && !envPath.isBlank()) {
-                        File f = new File(envPath);
-                        if (f.exists()) {
-                            serviceAccount = new FileInputStream(f);
+                        Path path = Path.of(envPath);
+                        if (Files.exists(path)) {
+                            serviceAccount = Files.newInputStream(path);
                             LOG.info("Loaded Firebase credentials from path: {}", envPath);
                         }
                     }
@@ -58,11 +58,11 @@ public class FirebaseConfiguration {
                         "/root/apps/backend/firebase-service-account.json",
                         "firebase-service-account.json",
                     };
-                    for (String path : candidates) {
-                        File f = new File(path);
-                        if (f.exists()) {
-                            serviceAccount = new FileInputStream(f);
-                            LOG.info("Loaded Firebase credentials from file: {}", path);
+                    for (String candidate : candidates) {
+                        Path path = Path.of(candidate);
+                        if (Files.exists(path)) {
+                            serviceAccount = Files.newInputStream(path);
+                            LOG.info("Loaded Firebase credentials from file: {}", candidate);
                             break;
                         }
                     }
