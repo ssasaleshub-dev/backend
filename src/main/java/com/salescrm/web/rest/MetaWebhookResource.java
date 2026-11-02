@@ -18,7 +18,7 @@ import reactor.core.publisher.Mono;
  * Webhook notifications for real-time lead generation and on-demand historical lead sync.
  */
 @RestController
-@RequestMapping("/api/webhooks/meta")
+@RequestMapping({ "/api/webhooks/meta", "/api/leads/webhook" })
 public class MetaWebhookResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(MetaWebhookResource.class);
@@ -35,7 +35,7 @@ public class MetaWebhookResource {
     /**
      * Handshake verification endpoint for Meta.
      */
-    @GetMapping(value = "/leads", produces = MediaType.TEXT_PLAIN_VALUE)
+    @GetMapping(value = { "/leads", "" }, produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> verifyWebhook(
         @RequestParam(name = "hub.mode", required = false) String mode,
         @RequestParam(name = "hub.verify_token", required = false) String token,
@@ -55,7 +55,7 @@ public class MetaWebhookResource {
     /**
      * Real-time lead ingestion event endpoint.
      */
-    @PostMapping(value = "/leads", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = { "/leads", "" }, consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<String>> handleLeadgenEvent(
         @RequestHeader(name = "X-Hub-Signature-256", required = false) String signature,
         @RequestBody MetaWebhookPayload payload
