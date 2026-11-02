@@ -86,3 +86,4 @@ public class LeadActivityService {
 
     private record UserContext(String userId, String userName) {}
 }
+

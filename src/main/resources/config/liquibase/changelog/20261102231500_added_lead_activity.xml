@@ -71,3 +71,4 @@
                                  onDelete="CASCADE"/>
     </changeSet>
 </databaseChangeLog>
+

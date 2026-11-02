@@ -13,3 +13,4 @@ public interface LeadActivityRepository extends R2dbcRepository<LeadActivity, Lo
 
     Flux<LeadActivity> findAllByLeadIdOrderByCreatedAtDesc(Long leadId);
 }
+
