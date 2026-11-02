@@ -44,7 +44,7 @@ class LeadActivityResourceTest {
 
         when(leadActivityService.getActivitiesForLead(100L)).thenReturn(Flux.just(activity1));
 
-        List<LeadActivity> result = resource.getLeadActivities(100L).collectList().block();
+        List<LeadActivity> result = resource.getLeadActivities("100").collectList().block();
 
         assertThat(result).isNotNull().hasSize(1);
         assertThat(result.get(0).getActionType()).isEqualTo("STATUS_CHANGE");
@@ -71,7 +71,7 @@ class LeadActivityResourceTest {
 
         when(leadActivityService.logActivity(any(LeadActivityDTO.class))).thenReturn(Mono.just(saved));
 
-        ResponseEntity<LeadActivity> response = resource.createLeadActivity(100L, dto).block();
+        ResponseEntity<LeadActivity> response = resource.createLeadActivity("100", dto).block();
 
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -80,5 +80,14 @@ class LeadActivityResourceTest {
         assertThat(response.getBody().getLeadId()).isEqualTo(100L);
         assertThat(response.getBody().getSummary()).isEqualTo(dto.getSummary());
         verify(leadActivityService).logActivity(any(LeadActivityDTO.class));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenIdIsInvalid() {
+        LeadActivityDTO dto = new LeadActivityDTO();
+        ResponseEntity<LeadActivity> response = resource.createLeadActivity("invalid_id", dto).block();
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }
