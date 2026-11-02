@@ -9,6 +9,7 @@ import com.salescrm.service.MetaGraphApiService;
 import com.salescrm.service.dto.meta.MetaWebhookPayload;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,5 +67,17 @@ class MetaWebhookResourceTest {
         assertThat(response.getBody()).isEqualTo("EVENT_RECEIVED");
         verify(metaGraphApiService).processWebhookPayload(any(MetaWebhookPayload.class));
     }
-}
 
+    @Test
+    void shouldSyncHistoricalLeadsSuccessfully() {
+        when(metaGraphApiService.syncHistoricalFormLeads("FORM_123")).thenReturn(Mono.just(42));
+
+        ResponseEntity<Map<String, Object>> response = resource.syncHistoricalLeads("FORM_123").block();
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().get("success")).isEqualTo(true);
+        assertThat(response.getBody().get("syncedCount")).isEqualTo(42);
+    }
+}

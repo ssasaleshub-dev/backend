@@ -2,6 +2,8 @@ package com.salescrm.web.rest;
 
 import com.salescrm.service.MetaGraphApiService;
 import com.salescrm.service.dto.meta.MetaWebhookPayload;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +15,7 @@ import reactor.core.publisher.Mono;
 
 /**
  * REST controller for receiving and processing official Meta (Facebook & Instagram)
- * Webhook notifications for real-time lead generation.
+ * Webhook notifications for real-time lead generation and on-demand historical lead sync.
  */
 @RestController
 @RequestMapping("/api/webhooks/meta")
@@ -32,8 +34,6 @@ public class MetaWebhookResource {
 
     /**
      * Handshake verification endpoint for Meta.
-     * When configuring the webhook URL in Meta App Dashboard, Meta sends a GET request
-     * with hub.mode, hub.verify_token, and hub.challenge.
      */
     @GetMapping(value = "/leads", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> verifyWebhook(
@@ -54,7 +54,6 @@ public class MetaWebhookResource {
 
     /**
      * Real-time lead ingestion event endpoint.
-     * When a user submits an Instant Form on FB or IG, Meta sends a POST request with leadgen_id.
      */
     @PostMapping(value = "/leads", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<String>> handleLeadgenEvent(
@@ -63,7 +62,6 @@ public class MetaWebhookResource {
     ) {
         LOG.info("Received Meta Webhook leadgen event: object={}", payload != null ? payload.getObject() : "null");
 
-        // Immediately return 200 OK to Meta and process lead reactively in the background
         if (payload != null && "page".equalsIgnoreCase(payload.getObject())) {
             metaGraphApiService.processWebhookPayload(payload)
                 .subscribe(
@@ -74,5 +72,28 @@ public class MetaWebhookResource {
 
         return Mono.just(ResponseEntity.ok("EVENT_RECEIVED"));
     }
-}
 
+    /**
+     * Pull all existing historical leads from a Meta Form directly into the database.
+     * POST /api/webhooks/meta/sync/{formId}
+     */
+    @PostMapping("/sync/{formId}")
+    public Mono<ResponseEntity<Map<String, Object>>> syncHistoricalLeads(@PathVariable("formId") String formId) {
+        LOG.info("REST request to sync all historical leads from Meta Form: {}", formId);
+
+        return metaGraphApiService.syncHistoricalFormLeads(formId)
+            .map(count -> {
+                Map<String, Object> res = new HashMap<>();
+                res.put("success", true);
+                res.put("syncedCount", count);
+                res.put("message", "Successfully pulled and saved " + count + " leads from Meta into database");
+                return ResponseEntity.ok(res);
+            })
+            .onErrorResume(ex -> {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("error", ex.getMessage());
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err));
+            });
+    }
+}

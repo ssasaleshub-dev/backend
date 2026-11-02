@@ -5,6 +5,8 @@ import com.salescrm.service.dto.ExcelLeadRowDTO;
 import com.salescrm.service.dto.meta.MetaWebhookPayload;
 import com.salescrm.service.impl.LeadImportServiceImpl;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +55,43 @@ public class MetaGraphApiService {
             .filter(leadgenId -> leadgenId != null && !leadgenId.isBlank())
             .concatMap(this::fetchAndIngestLead)
             .then();
+    }
+
+    /**
+     * Pulls all historical leads already submitted to a Meta Instant Form
+     * and ingests them into the database.
+     */
+    public Mono<Integer> syncHistoricalFormLeads(String formId) {
+        LOG.info("Syncing historical leads from Meta Graph API for form: {}", formId);
+
+        if (pageAccessToken == null || pageAccessToken.isBlank()) {
+            return Mono.error(new IllegalStateException("Meta Page Access Token is not configured. Set META_PAGE_ACCESS_TOKEN."));
+        }
+
+        String uri = String.format("/%s/%s/leads?access_token=%s&limit=250", apiVersion, formId, pageAccessToken);
+
+        return webClient.get()
+            .uri(uri)
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .flatMap(json -> {
+                JsonNode data = json.path("data");
+                if (data.isArray() && !data.isEmpty()) {
+                    List<JsonNode> leads = new ArrayList<>();
+                    data.forEach(leads::add);
+                    LOG.info("Found {} historical leads for form {}. Ingesting into database...", leads.size(), formId);
+
+                    return Flux.fromIterable(leads)
+                        .concatMap(this::mapAndSaveLead)
+                        .then(Mono.just(leads.size()));
+                }
+                LOG.info("No leads found on Meta for form: {}", formId);
+                return Mono.just(0);
+            })
+            .onErrorResume(ex -> {
+                LOG.error("Failed to sync historical leads for form {}: {}", formId, ex.getMessage(), ex);
+                return Mono.error(ex);
+            });
     }
 
     /**
@@ -183,4 +222,3 @@ public class MetaGraphApiService {
         return dto;
     }
 }
-
