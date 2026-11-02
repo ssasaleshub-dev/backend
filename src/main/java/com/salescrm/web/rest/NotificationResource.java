@@ -3,6 +3,7 @@ package com.salescrm.web.rest;
 import com.salescrm.domain.CrmNotification;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmNotificationService;
+import com.salescrm.service.FirebasePushNotificationService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -27,9 +28,38 @@ public class NotificationResource {
     private static final Logger LOG = LoggerFactory.getLogger(NotificationResource.class);
 
     private final CrmNotificationService crmNotificationService;
+    private final FirebasePushNotificationService firebasePushNotificationService;
 
     public NotificationResource(CrmNotificationService crmNotificationService) {
+        this(crmNotificationService, null);
+    }
+
+    public NotificationResource(CrmNotificationService crmNotificationService, FirebasePushNotificationService firebasePushNotificationService) {
+        this.firebasePushNotificationService = firebasePushNotificationService;
         this.crmNotificationService = crmNotificationService;
+    }
+
+    /**
+     * {@code POST  /api/notifications/fcm-token} : Register device FCM token for push notifications.
+     */
+    @PostMapping("/fcm-token")
+    public Mono<ResponseEntity<Map<String, Object>>> registerFcmToken(@RequestBody Map<String, String> payload) {
+        String token = payload != null ? payload.get("token") : null;
+        String requestedUserId = payload != null ? payload.get("userId") : null;
+        return SecurityUtils.getCurrentUserLogin()
+            .defaultIfEmpty(requestedUserId != null && !requestedUserId.isBlank() ? requestedUserId : "admin")
+            .map(userId -> {
+                if (firebasePushNotificationService != null && token != null) {
+                    firebasePushNotificationService.registerToken(userId, token);
+                    if (requestedUserId != null && !requestedUserId.equalsIgnoreCase(userId)) {
+                        firebasePushNotificationService.registerToken(requestedUserId, token);
+                    }
+                }
+                Map<String, Object> response = new HashMap<>();
+                response.put("status", "success");
+                response.put("userId", userId);
+                return ResponseEntity.ok(response);
+            });
     }
 
     private Mono<String> resolveUserId(String requestedUserId) {
@@ -87,6 +117,7 @@ public class NotificationResource {
                 .createNotification(notification)
                 .map(result -> {
                     try {
+                        if (firebasePushNotificationService != null) { firebasePushNotificationService.sendPushNotification(result.getUserId(), result.getTitle(), result.getMessage(), null); }
                         return ResponseEntity.created(new URI("/api/notifications/" + result.getId())).body(result);
                     } catch (URISyntaxException e) {
                         throw new RuntimeException(e);

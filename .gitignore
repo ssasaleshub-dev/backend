@@ -151,3 +151,6 @@ Desktop.ini
 ######################
 coverage/
 .nyc_output/
+
+# Firebase Service Account
+*firebase-service-account*.json

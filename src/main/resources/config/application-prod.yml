@@ -77,6 +77,14 @@ server:
 # ===================================================================
 
 jhipster:
+  cors:
+    allowed-origins: "http://localhost:8100,https://localhost:8100,https://localhost,capacitor://localhost,http://localhost,https://ssasaleshub.cloud,https://www.ssasaleshub.cloud,https://ssasaleshub.pages.dev"
+    allowed-origin-patterns: "https://*.ssasaleshub.cloud,https://*.pages.dev,*"
+    allowed-methods: "*"
+    allowed-headers: "*"
+    exposed-headers: "Authorization,Link,X-Total-Count,X-Alert,X-Error"
+    allow-credentials: true
+    max-age: 1800
   http:
     cache: # Used by the CachingHttpHeadersFilter
       timeToLiveInDays: 1461

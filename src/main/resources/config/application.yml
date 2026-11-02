@@ -161,6 +161,14 @@ info:
 # ===================================================================
 
 jhipster:
+  cors:
+    allowed-origins: "http://localhost:8100,https://localhost:8100,https://localhost,capacitor://localhost,http://localhost,https://ssasaleshub.cloud,https://www.ssasaleshub.cloud,https://ssasaleshub.pages.dev"
+    allowed-origin-patterns: "https://*.ssasaleshub.cloud,https://*.pages.dev,*"
+    allowed-methods: "*"
+    allowed-headers: "*"
+    exposed-headers: "Authorization,Link,X-Total-Count,X-Alert,X-Error"
+    allow-credentials: true
+    max-age: 1800
   mail:
     from: salesCRM@localhost
   api-docs:
@@ -198,3 +206,10 @@ cloudflare:
     access-key-id: "92ce63ca912817d89306ee9744ce0df0"
     secret-access-key: "6326c2231f746f1a6cc32e64a5632b3121784d5f26f1fb6359599be75eb17b68"
     public-domain: "https://pub-b38ef19fd7704f8381af26597be53b7f.r2.dev"
+
+meta:
+  webhook:
+    verify-token: ${META_WEBHOOK_VERIFY_TOKEN:SSA_CRM_SECRET_2026}
+  graph:
+    api-version: ${META_GRAPH_API_VERSION:v19.0}
+    page-access-token: ${META_PAGE_ACCESS_TOKEN:}
