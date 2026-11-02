@@ -88,19 +88,23 @@ public class LeadResource {
      */
     @PutMapping("/{id}")
     public Mono<ResponseEntity<LeadDTO>> updateLead(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody LeadDTO leadDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to update Lead : {}, {}", id, leadDTO);
-        if (leadDTO.getId() == null) {
+        Long numericId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (numericId == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
-        if (!Objects.equals(id, leadDTO.getId())) {
+        LOG.debug("REST request to update Lead : {}, {}", numericId, leadDTO);
+        if (leadDTO.getId() == null) {
+            leadDTO.setId(numericId);
+        }
+        if (!Objects.equals(numericId, leadDTO.getId())) {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         return leadRepository
-            .existsById(id)
+            .existsById(numericId)
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -130,19 +134,23 @@ public class LeadResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<LeadDTO>> partialUpdateLead(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody LeadDTO leadDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Lead partially : {}, {}", id, leadDTO);
-        if (leadDTO.getId() == null) {
+        Long numericId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (numericId == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
-        if (!Objects.equals(id, leadDTO.getId())) {
+        LOG.debug("REST request to partial update Lead partially : {}, {}", numericId, leadDTO);
+        if (leadDTO.getId() == null) {
+            leadDTO.setId(numericId);
+        }
+        if (!Objects.equals(numericId, leadDTO.getId())) {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         return leadRepository
-            .existsById(id)
+            .existsById(numericId)
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -203,9 +211,13 @@ public class LeadResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the leadDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public Mono<ResponseEntity<LeadDTO>> getLead(@PathVariable("id") Long id) {
-        LOG.debug("REST request to get Lead : {}", id);
-        Mono<LeadDTO> leadDTO = leadService.findOne(id);
+    public Mono<ResponseEntity<LeadDTO>> getLead(@PathVariable("id") String id) {
+        Long numericId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (numericId == null) {
+            return Mono.just(ResponseEntity.notFound().build());
+        }
+        LOG.debug("REST request to get Lead : {}", numericId);
+        Mono<LeadDTO> leadDTO = leadService.findOne(numericId);
         return ResponseUtil.wrapOrNotFound(leadDTO);
     }
 
@@ -216,10 +228,14 @@ public class LeadResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public Mono<ResponseEntity<Void>> deleteLead(@PathVariable("id") Long id) {
-        LOG.debug("REST request to delete Lead : {}", id);
+    public Mono<ResponseEntity<Void>> deleteLead(@PathVariable("id") String id) {
+        Long numericId = com.salescrm.service.util.LeadIdCrypto.decrypt(id);
+        if (numericId == null) {
+            return Mono.just(ResponseEntity.notFound().build());
+        }
+        LOG.debug("REST request to delete Lead : {}", numericId);
         return leadService
-            .delete(id)
+            .delete(numericId)
             .then(
                 Mono.just(
                     ResponseEntity.noContent()

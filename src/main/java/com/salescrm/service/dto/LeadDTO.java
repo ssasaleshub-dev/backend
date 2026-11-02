@@ -50,6 +50,10 @@ public class LeadDTO implements Serializable {
         this.id = id;
     }
 
+    public String getEncryptedId() {
+        return id != null ? com.salescrm.service.util.LeadIdCrypto.encrypt(id) : null;
+    }
+
     public String getExternalId() {
         return externalId;
     }
