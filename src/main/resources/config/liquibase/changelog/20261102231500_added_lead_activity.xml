@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Added table lead_activity for Lead Audit Logging & Activities
+    -->
+    <changeSet id="20261102231500-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="lead_activity"/>
+            </not>
+        </preConditions>
+        <createTable tableName="lead_activity">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="lead_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="user_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="summary" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="details" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="field_name" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="old_value" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="new_value" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="${datetimeType}" defaultValueComputed="current_timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="lead_activity" indexName="idx_lead_activity_lead_created">
+            <column name="lead_id"/>
+            <column name="created_at" descending="true"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261102231500-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="lead_activity"/>
+            <tableExists tableName="lead"/>
+            <not>
+                <foreignKeyConstraintExists foreignKeyName="fk_lead_activity__lead_id"/>
+            </not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="lead_activity"
+                                 baseColumnNames="lead_id"
+                                 constraintName="fk_lead_activity__lead_id"
+                                 referencedTableName="lead"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>
