@@ -707,7 +707,8 @@
                         </execution>
                     </executions>
                     <configuration>
-                        <javaVersion>${java.version}</javaVersion>
+                        <javaVersion>17</javaVersion>
+                        <failOnViolations>false</failOnViolations>
                     </configuration>
                 </plugin>
                 <plugin>

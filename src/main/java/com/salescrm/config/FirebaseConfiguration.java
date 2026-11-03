@@ -6,8 +6,8 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.io.InputStream;
 import java.util.Base64;
 import org.slf4j.Logger;
@@ -43,9 +43,9 @@ public class FirebaseConfiguration {
                 if (serviceAccount == null) {
                     String envPath = System.getenv("FIREBASE_CREDENTIALS_PATH");
                     if (envPath != null && !envPath.isBlank()) {
-                        File f = new File(envPath);
-                        if (f.exists()) {
-                            serviceAccount = new FileInputStream(f);
+                        Path p = Path.of(envPath);
+                        if (Files.exists(p)) {
+                            serviceAccount = Files.newInputStream(p);
                             LOG.info("Loaded Firebase credentials from path: {}", envPath);
                         }
                     }
@@ -59,9 +59,9 @@ public class FirebaseConfiguration {
                         "firebase-service-account.json",
                     };
                     for (String path : candidates) {
-                        File f = new File(path);
-                        if (f.exists()) {
-                            serviceAccount = new FileInputStream(f);
+                        Path p = Path.of(path);
+                        if (Files.exists(p)) {
+                            serviceAccount = Files.newInputStream(p);
                             LOG.info("Loaded Firebase credentials from file: {}", path);
                             break;
                         }
