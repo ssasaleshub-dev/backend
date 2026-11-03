@@ -22,7 +22,7 @@ public class SecurityJwtConfiguration {
 
     private static final Logger LOG = LoggerFactory.getLogger(SecurityJwtConfiguration.class);
 
-    @Value("${jhipster.security.authentication.jwt.base64-secret}")
+    @Value("${jhipster.security.authentication.jwt.base64-secret:fd54a454659368e69d6e53ea04554e296d6f1a54c48bdd39da918a39795da4e0cac91738874fa816d9b7bee52cca7793be663c705081c25c33d24f01141c52d1}")
     private String jwtKey;
 
     @Bean
