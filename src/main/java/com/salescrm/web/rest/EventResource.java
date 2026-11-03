@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -35,7 +36,8 @@ public class EventResource {
         this(crmEventService, null);
     }
 
-    public EventResource(CrmEventService crmEventService, LeadActivityService leadActivityService) {
+    @Autowired
+    public EventResource(CrmEventService crmEventService, @Autowired(required = false) LeadActivityService leadActivityService) {
         this.crmEventService = crmEventService;
         this.leadActivityService = leadActivityService;
     }
