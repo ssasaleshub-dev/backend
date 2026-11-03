@@ -4,7 +4,6 @@ import com.salescrm.domain.LeadActivity;
 import com.salescrm.service.LeadActivityService;
 import com.salescrm.service.dto.LeadActivityDTO;
 import com.salescrm.service.util.LeadIdCrypto;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -58,7 +57,7 @@ public class LeadActivityResource {
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ResponseEntity<LeadActivity>> createLeadActivity(
         @PathVariable("id") String id,
-        @Valid @RequestBody LeadActivityDTO leadActivityDTO
+        @RequestBody LeadActivityDTO leadActivityDTO
     ) {
         Long leadId = resolveLeadId(id);
         if (leadId == null) {
@@ -67,6 +66,16 @@ public class LeadActivityResource {
         }
         LOG.debug("REST request to record Lead Activity for lead ID: {}", leadId);
         leadActivityDTO.setLeadId(leadId);
+
+        if (leadActivityDTO.getSummary() == null || leadActivityDTO.getSummary().isBlank()) {
+            leadActivityDTO.setSummary("Activity recorded");
+        }
+        if (leadActivityDTO.getActionType() == null || leadActivityDTO.getActionType().isBlank()) {
+            leadActivityDTO.setActionType("DATA_MODIFY");
+        }
+        if (leadActivityDTO.getUserName() == null || leadActivityDTO.getUserName().isBlank()) {
+            leadActivityDTO.setUserName("Counselor");
+        }
 
         return leadActivityService.logActivity(leadActivityDTO)
             .map(result -> ResponseEntity.status(HttpStatus.CREATED).body(result));

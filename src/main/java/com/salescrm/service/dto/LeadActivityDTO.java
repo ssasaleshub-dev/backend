@@ -1,6 +1,8 @@
 package com.salescrm.service.dto;
 
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Size;
 import java.io.Serial;
 import java.io.Serializable;
@@ -10,6 +12,7 @@ import java.util.Objects;
 /**
  * A DTO representing a LeadActivity record.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LeadActivityDTO implements Serializable {
 
     @Serial
@@ -17,7 +20,6 @@ public class LeadActivityDTO implements Serializable {
 
     private Long id;
 
-    @NotNull(message = "must not be null")
     private Long leadId;
 
     @Size(max = 100)
@@ -26,11 +28,9 @@ public class LeadActivityDTO implements Serializable {
     @Size(max = 255)
     private String userName;
 
-    @NotNull(message = "must not be null")
     @Size(max = 50)
     private String actionType; // STATUS_CHANGE, NOTE_ADDED, FIELD_UPDATED, OUTREACH, ASSIGNMENT
 
-    @NotNull(message = "must not be null")
     @Size(max = 500)
     private String summary;
 
@@ -51,6 +51,22 @@ public class LeadActivityDTO implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    @JsonProperty("id")
+    public void setIdFromJson(Object rawId) {
+        if (rawId instanceof Number n) {
+            this.id = n.longValue();
+        } else if (rawId instanceof String s) {
+            try {
+                this.id = Long.parseLong(s.trim());
+            } catch (NumberFormatException ignored) {
+                // Client-generated string ids (e.g. act_17937...) are ignored so database auto-assigns primary key
+                this.id = null;
+            }
+        } else {
+            this.id = null;
+        }
     }
 
     public Long getLeadId() {
@@ -89,6 +105,7 @@ public class LeadActivityDTO implements Serializable {
         return summary;
     }
 
+    @JsonAlias("title")
     public void setSummary(String summary) {
         this.summary = summary;
     }
@@ -97,6 +114,7 @@ public class LeadActivityDTO implements Serializable {
         return details;
     }
 
+    @JsonAlias("description")
     public void setDetails(String details) {
         this.details = details;
     }
@@ -105,6 +123,7 @@ public class LeadActivityDTO implements Serializable {
         return fieldName;
     }
 
+    @JsonAlias("fieldChanged")
     public void setFieldName(String fieldName) {
         this.fieldName = fieldName;
     }
@@ -129,6 +148,7 @@ public class LeadActivityDTO implements Serializable {
         return createdAt;
     }
 
+    @JsonAlias("timestamp")
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
