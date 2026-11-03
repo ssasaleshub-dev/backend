@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261103000000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="staff_attendance"/>
+            </not>
+        </preConditions>
+        <createTable tableName="staff_attendance">
+            <column name="id" type="bigint" autoIncrement="true" startWith="1000">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="user_role" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="attendance_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="check_in_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="check_out_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="work_mode" type="varchar(50)" defaultValue="OFFICE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(50)" defaultValue="PRESENT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_minutes" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_hours_formatted" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="check_in_note" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="check_out_note" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ip_address" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="device_info" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="staff_attendance"
+            columnNames="user_id, attendance_date"
+            constraintName="ux_staff_attendance__user_date"/>
+    </changeSet>
+
+</databaseChangeLog>
