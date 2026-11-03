@@ -34,5 +34,4 @@
     <include file="config/liquibase/changelog/20261022143000_added_chat_message_media_columns.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261022144500_added_chat_message_recipient.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261024000000_added_events_and_notifications.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20261102231500_added_lead_activity.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

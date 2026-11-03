@@ -40,7 +40,7 @@ class LeadManagementResourceTest {
         when(leadDetailedService.updateStatus(eq(958L), eq(LeadStatus.PROPOSAL_SENT), eq("Documents requested")))
             .thenReturn(Mono.just(resultDto));
 
-        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus("958", dto).block();
+        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus(958L, dto).block();
 
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -58,7 +58,7 @@ class LeadManagementResourceTest {
         when(leadDetailedService.updateStatus(eq(958L), eq(LeadStatus.NEGOTIATION), eq("Processing application")))
             .thenReturn(Mono.just(resultDto));
 
-        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus("958", dto).block();
+        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus(958L, dto).block();
 
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -76,7 +76,7 @@ class LeadManagementResourceTest {
         when(leadDetailedService.updateStatus(eq(958L), eq(LeadStatus.WON), eq("Visa approved")))
             .thenReturn(Mono.just(resultDto));
 
-        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus("958", dto).block();
+        ResponseEntity<LeadDetailedDTO> response = leadManagementResource.updateLeadStatus(958L, dto).block();
 
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
