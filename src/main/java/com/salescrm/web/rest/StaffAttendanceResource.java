@@ -131,3 +131,4 @@ public class StaffAttendanceResource {
         return staffAttendanceService.getAttendanceSummary(date).map(ResponseEntity::ok);
     }
 }
+

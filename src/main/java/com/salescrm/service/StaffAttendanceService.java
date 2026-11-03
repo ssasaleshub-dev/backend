@@ -28,3 +28,4 @@ public interface StaffAttendanceService {
 
     Mono<Map<String, Object>> getAttendanceSummary(LocalDate date);
 }
+

@@ -35,3 +35,4 @@ public interface StaffAttendanceRepository extends ReactiveCrudRepository<StaffA
     @Query("SELECT COUNT(*) FROM staff_attendance WHERE attendance_date = :attendanceDate AND check_in_time IS NOT NULL AND check_out_time IS NULL")
     Mono<Long> countCurrentlyWorking(LocalDate attendanceDate);
 }
+
