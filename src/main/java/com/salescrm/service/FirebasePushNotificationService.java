@@ -81,5 +81,9 @@ public class FirebasePushNotificationService {
             LOG.error("Unexpected error sending push notification: {}", e.getMessage());
         }
     }
+    public void sendPushNotificationToAll(String title, String body, Map<String, String> data) {
+        for (String user : userTokens.keySet()) {
+            sendPushNotification(user, title, body, data);
+        }
+    }
 }
-

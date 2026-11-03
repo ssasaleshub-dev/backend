@@ -3,6 +3,9 @@ package com.salescrm.web.rest;
 import com.salescrm.domain.CrmEvent;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmEventService;
+import com.salescrm.service.LeadActivityService;
+import com.salescrm.service.dto.LeadActivityDTO;
+import com.salescrm.service.util.LeadIdCrypto;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -26,9 +29,15 @@ public class EventResource {
     private static final Logger LOG = LoggerFactory.getLogger(EventResource.class);
 
     private final CrmEventService crmEventService;
+    private final LeadActivityService leadActivityService;
 
     public EventResource(CrmEventService crmEventService) {
+        this(crmEventService, null);
+    }
+
+    public EventResource(CrmEventService crmEventService, LeadActivityService leadActivityService) {
         this.crmEventService = crmEventService;
+        this.leadActivityService = leadActivityService;
     }
 
     /**
@@ -37,16 +46,24 @@ public class EventResource {
     @GetMapping("")
     public Mono<ResponseEntity<List<CrmEvent>>> getEvents(
         @RequestParam(name = "userId", required = false) String userId,
-        @RequestParam(name = "candidateId", required = false) Long candidateId
+        @RequestParam(name = "candidateId", required = false) String candidateId
     ) {
         LOG.debug("REST request to get events. userId: {}, candidateId: {}", userId, candidateId);
 
-        if (userId != null && !userId.isBlank()) {
-            return crmEventService.getEvents(userId, candidateId).collectList().map(ResponseEntity::ok);
+        Long resolvedCandidateId = null;
+        if (candidateId != null && !candidateId.isBlank()) {
+            resolvedCandidateId = LeadIdCrypto.decrypt(candidateId);
+            if (resolvedCandidateId == null) {
+                try { resolvedCandidateId = Long.parseLong(candidateId.trim()); } catch (NumberFormatException ignored) {}
+            }
         }
 
-        if (candidateId != null) {
-            return crmEventService.getEvents(null, candidateId).collectList().map(ResponseEntity::ok);
+        if (userId != null && !userId.isBlank()) {
+            return crmEventService.getEvents(userId, resolvedCandidateId).collectList().map(ResponseEntity::ok);
+        }
+
+        if (resolvedCandidateId != null) {
+            return crmEventService.getEvents(null, resolvedCandidateId).collectList().map(ResponseEntity::ok);
         }
 
         return SecurityUtils.getCurrentUserLogin()
@@ -79,6 +96,15 @@ public class EventResource {
                 .createEvent(event)
                 .map(result -> {
                     try {
+                        if (leadActivityService != null && result.getCandidateId() != null) {
+                            LeadActivityDTO act = new LeadActivityDTO();
+                            act.setLeadId(result.getCandidateId());
+                            act.setUserName(result.getUserId() != null ? result.getUserId() : "Staff");
+                            act.setActionType("REMARKS_ADDED");
+                            act.setSummary("Reminder Scheduled: " + result.getTitle());
+                            act.setDetails("Scheduled on " + result.getEventDate() + " at " + (result.getEventTime() != null ? result.getEventTime() : "09:00") + (result.getDescription() != null ? " - " + result.getDescription() : ""));
+                            leadActivityService.logActivity(act).subscribe(null, err -> LOG.warn("Could not log reminder activity: {}", err.getMessage()));
+                        }
                         return ResponseEntity.created(new URI("/api/events/" + result.getId())).body(result);
                     } catch (URISyntaxException e) {
                         throw new RuntimeException(e);
