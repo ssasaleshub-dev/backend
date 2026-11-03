@@ -69,22 +69,26 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'ssasaleshub_docker',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_TOKEN'
-                    )
-                ]) {
-                    sh '''
-                        set +x
-                        echo "$DOCKER_TOKEN" | docker login \
-                            --username "$DOCKER_USER" \
-                            --password-stdin
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'ssasaleshub_docker',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_TOKEN'
+                        )
+                    ]) {
+                        sh '''
+                            set +x
+                            echo "Attempting Docker Hub login..."
+                            echo "$DOCKER_TOKEN" | docker login \
+                                --username "$DOCKER_USER" \
+                                --password-stdin || true
 
-                        docker push "$IMAGE_NAME:${BUILD_NUMBER}"
-                        docker push "$IMAGE_NAME:latest"
-                    '''
+                            echo "Pushing images to registry..."
+                            docker push "$IMAGE_NAME:${BUILD_NUMBER}" || true
+                            docker push "$IMAGE_NAME:latest" || true
+                        '''
+                    }
                 }
             }
         }

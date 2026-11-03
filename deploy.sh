@@ -12,9 +12,13 @@ IMAGE_NAME="ssasaleshub/backend:latest"
 echo "Ensuring docker network exists..."
 docker network create salescrm-net 2>/dev/null || true
 
-# 2. Pull the latest image
-echo "Pulling latest image: $IMAGE_NAME..."
-docker pull "$IMAGE_NAME" || true
+# 2. Check latest image (prioritize fresh locally-built image)
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+    echo "Pulling latest image: $IMAGE_NAME..."
+    docker pull "$IMAGE_NAME" || true
+else
+    echo "Using fresh local image: $IMAGE_NAME"
+fi
 
 # 3. Deploy via Docker Compose
 if [ -d "$APP_DIR" ] && [ -f "$APP_DIR/docker-compose.yml" ]; then
@@ -26,11 +30,11 @@ if [ -d "$APP_DIR" ] && [ -f "$APP_DIR/docker-compose.yml" ]; then
 
     # Force recreate salescrm-app container with the latest image
     echo "Recreating salescrm-app container with latest image..."
-    docker compose up -d --no-build --force-recreate salescrm-app
+    docker compose up -d --force-recreate salescrm-app
 elif [ -f "./docker-compose.yml" ]; then
     echo "Deploying via Docker Compose in current directory $(pwd)..."
     docker compose up -d salescrm-postgres
-    docker compose up -d --no-build --force-recreate salescrm-app
+    docker compose up -d --force-recreate salescrm-app
 else
     echo "Docker compose file not found. Deploying container directly..."
     docker stop salescrm-app 2>/dev/null || true
