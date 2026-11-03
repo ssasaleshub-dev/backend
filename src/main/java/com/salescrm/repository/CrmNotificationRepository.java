@@ -19,6 +19,9 @@ public interface CrmNotificationRepository extends ReactiveCrudRepository<CrmNot
 
     Mono<Long> countByUserIdAndIsReadFalse(String userId);
 
+    @Query("SELECT COUNT(*) FROM crm_notifications WHERE user_id = :userId AND reference_id = :referenceId AND type = :type")
+    Mono<Long> countByUserIdAndReferenceIdAndType(String userId, String referenceId, String type);
+
     @Modifying
     @Query("UPDATE crm_notifications SET is_read = true, read_at = :readAt WHERE user_id = :userId AND is_read = false")
     Mono<Long> markAllAsRead(String userId, Instant readAt);

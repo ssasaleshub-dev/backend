@@ -262,6 +262,7 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
                 dto.setMattressSize(p.getMattressSize());
                 dto.setBudgetRange(p.getBudgetRange());
                 dto.setPurchaseTimeline(p.getPurchaseTimeline());
+                dto.setClosingDate(p.getPurchaseTimeline());
             })
             .then();
 

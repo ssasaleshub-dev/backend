@@ -61,6 +61,7 @@ public class LeadDetailedDTO implements Serializable {
     private String mattressSize;
     private String budgetRange;
     private String purchaseTimeline;
+    private String closingDate;
 
     public LeadDetailedDTO() {}
 
@@ -278,6 +279,18 @@ public class LeadDetailedDTO implements Serializable {
 
     public void setPurchaseTimeline(String purchaseTimeline) {
         this.purchaseTimeline = purchaseTimeline;
+    }
+
+    public String getClosingDate() {
+        if (closingDate != null && !closingDate.isBlank()) return closingDate;
+        return purchaseTimeline;
+    }
+
+    public void setClosingDate(String closingDate) {
+        this.closingDate = closingDate;
+        if (this.purchaseTimeline == null || this.purchaseTimeline.isBlank()) {
+            this.purchaseTimeline = closingDate;
+        }
     }
 
     public String getVisaType() {
