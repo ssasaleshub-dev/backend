@@ -3,6 +3,7 @@ package com.salescrm.web.rest;
 import com.salescrm.domain.CrmEvent;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmEventService;
+import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadActivityService;
 import com.salescrm.service.dto.LeadActivityDTO;
 import com.salescrm.service.util.LeadIdCrypto;
@@ -31,15 +32,21 @@ public class EventResource {
 
     private final CrmEventService crmEventService;
     private final LeadActivityService leadActivityService;
+    private final FirebasePushNotificationService firebasePushNotificationService;
 
     public EventResource(CrmEventService crmEventService) {
-        this(crmEventService, null);
+        this(crmEventService, null, null);
     }
 
     @Autowired
-    public EventResource(CrmEventService crmEventService, @Autowired(required = false) LeadActivityService leadActivityService) {
+    public EventResource(
+        CrmEventService crmEventService,
+        @Autowired(required = false) LeadActivityService leadActivityService,
+        @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService
+    ) {
         this.crmEventService = crmEventService;
         this.leadActivityService = leadActivityService;
+        this.firebasePushNotificationService = firebasePushNotificationService;
     }
 
     /**
@@ -88,7 +95,7 @@ public class EventResource {
     @PostMapping("")
     public Mono<ResponseEntity<CrmEvent>> createEvent(@Valid @RequestBody CrmEvent event) {
         LOG.debug("REST request to create CrmEvent : {}", event);
-        Mono<String> userResolver = (event.getUserId() != null && !event.getUserId().isBlank())
+        Mono<String> userResolver = (event.getUserId() != null && !event.getUserId().isBlank() && !"current".equalsIgnoreCase(event.getUserId()))
             ? Mono.just(event.getUserId())
             : SecurityUtils.getCurrentUserLogin().defaultIfEmpty("admin");
 
@@ -107,6 +114,21 @@ public class EventResource {
                             act.setDetails("Scheduled on " + result.getEventDate() + " at " + (result.getEventTime() != null ? result.getEventTime() : "09:00") + (result.getDescription() != null ? " - " + result.getDescription() : ""));
                             leadActivityService.logActivity(act).subscribe(null, err -> LOG.warn("Could not log reminder activity: {}", err.getMessage()));
                         }
+
+                        // Send instant push notification confirming reminder creation
+                        if (firebasePushNotificationService != null) {
+                            String candidate = result.getCandidateName() != null ? result.getCandidateName() : "Candidate";
+                            String pTitle = "🔔 Reminder Set: " + result.getTitle();
+                            String pBody = "Scheduled for " + candidate + " on " + result.getEventDate() + " at " + (result.getEventTime() != null ? result.getEventTime() : "09:00");
+                            Map<String, String> data = new java.util.HashMap<>();
+                            data.put("type", "REMINDER_SET");
+                            data.put("eventId", String.valueOf(result.getId()));
+                            if (result.getCandidateId() != null) {
+                                data.put("leadId", String.valueOf(result.getCandidateId()));
+                            }
+                            firebasePushNotificationService.sendPushNotification(result.getUserId(), pTitle, pBody, data);
+                        }
+
                         return ResponseEntity.created(new URI("/api/events/" + result.getId())).body(result);
                     } catch (URISyntaxException e) {
                         throw new RuntimeException(e);
