@@ -20,6 +20,11 @@ public class LeadPreferenceDTO implements Serializable {
 
     private String purchaseTimeline;
 
+    // Financial & Payment Aliases
+    private String clientBudget;
+    private String paymentStatus;
+    private String paymentDetails;
+
     private String visaType;
     private String age;
     private String educationalQualification;
@@ -57,11 +62,47 @@ public class LeadPreferenceDTO implements Serializable {
     }
 
     public String getBudgetRange() {
-        return budgetRange;
+        return budgetRange != null ? budgetRange : clientBudget;
     }
 
     public void setBudgetRange(String budgetRange) {
         this.budgetRange = budgetRange;
+        if (this.clientBudget == null) {
+            this.clientBudget = budgetRange;
+        }
+    }
+
+    public String getClientBudget() {
+        return clientBudget != null ? clientBudget : budgetRange;
+    }
+
+    public void setClientBudget(String clientBudget) {
+        this.clientBudget = clientBudget;
+        if (clientBudget != null) {
+            this.budgetRange = clientBudget;
+        }
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus != null ? paymentStatus : mattressType;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+        if (paymentStatus != null) {
+            this.mattressType = paymentStatus;
+        }
+    }
+
+    public String getPaymentDetails() {
+        return paymentDetails != null ? paymentDetails : mattressSize;
+    }
+
+    public void setPaymentDetails(String paymentDetails) {
+        this.paymentDetails = paymentDetails;
+        if (paymentDetails != null) {
+            this.mattressSize = paymentDetails;
+        }
     }
 
     public String getPurchaseTimeline() {

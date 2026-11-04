@@ -257,14 +257,32 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
                 dto.setLeadConfirm(p.getLeadConfirm());
                 dto.setAssignedTo(p.getAssignedTo());
 
-                // Legacy fallback
+                // Legacy fallback & Financial settlement profile
                 dto.setMattressType(p.getMattressType());
                 dto.setMattressSize(p.getMattressSize());
                 dto.setBudgetRange(p.getBudgetRange());
+                dto.setClientBudget(p.getBudgetRange());
+
+                String pStatus = p.getMattressType() != null && !p.getMattressType().isBlank() ? p.getMattressType() : "UNPAID";
+                dto.setPaymentStatus(pStatus);
+                dto.setPaymentDetails(p.getMattressSize());
+
                 dto.setPurchaseTimeline(p.getPurchaseTimeline());
                 dto.setClosingDate(p.getPurchaseTimeline());
             })
             .then();
+
+        // Extract student percentage / CGPA from candidate notes if present
+        if (lead.getNotes() != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "(?i)(?:what_is_your_cgpa_or_current_percentage|cgpa|percentage|score|marks)\\s*[:=?]\\s*([^|\\n,;]+)"
+            ).matcher(lead.getNotes());
+            if (m.find()) {
+                String score = m.group(1).trim();
+                dto.setStudentPercentage(score);
+                dto.setCgpa(score);
+            }
+        }
 
         return Mono.when(adHierarchyMono, prefMono).thenReturn(dto);
     }

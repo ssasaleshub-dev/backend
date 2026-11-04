@@ -63,6 +63,15 @@ public class LeadDetailedDTO implements Serializable {
     private String purchaseTimeline;
     private String closingDate;
 
+    // Financial & Payment Profile
+    private String clientBudget;
+    private String paymentStatus;
+    private String paymentDetails;
+
+    // Academic Profile
+    private String studentPercentage;
+    private String cgpa;
+
     public LeadDetailedDTO() {}
 
     public Long getId() {
@@ -374,5 +383,56 @@ public class LeadDetailedDTO implements Serializable {
 
     public void setEncryptedId(String encryptedId) {
         this.encryptedId = encryptedId;
+    }
+
+    public String getClientBudget() {
+        return clientBudget != null ? clientBudget : budgetRange;
+    }
+
+    public void setClientBudget(String clientBudget) {
+        this.clientBudget = clientBudget;
+        if (this.budgetRange == null) {
+            this.budgetRange = clientBudget;
+        }
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus != null ? paymentStatus : mattressType;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+        if (this.mattressType == null) {
+            this.mattressType = paymentStatus;
+        }
+    }
+
+    public String getPaymentDetails() {
+        return paymentDetails != null ? paymentDetails : mattressSize;
+    }
+
+    public void setPaymentDetails(String paymentDetails) {
+        this.paymentDetails = paymentDetails;
+        if (this.mattressSize == null) {
+            this.mattressSize = paymentDetails;
+        }
+    }
+
+    public String getStudentPercentage() {
+        return studentPercentage != null ? studentPercentage : cgpa;
+    }
+
+    public void setStudentPercentage(String studentPercentage) {
+        this.studentPercentage = studentPercentage;
+        this.cgpa = studentPercentage;
+    }
+
+    public String getCgpa() {
+        return cgpa != null ? cgpa : studentPercentage;
+    }
+
+    public void setCgpa(String cgpa) {
+        this.cgpa = cgpa;
+        this.studentPercentage = cgpa;
     }
 }
