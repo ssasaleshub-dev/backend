@@ -15,11 +15,17 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+/**
+ * Service Implementation for managing Staff Attendance.
+ * Enforces server-side clock integrity, immutability of checked-out records, and zero-backdating.
+ */
 @Service
 @Transactional
 public class StaffAttendanceServiceImpl implements StaffAttendanceService {
@@ -50,15 +56,17 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
         String deviceInfo
     ) {
         if (userId == null || userId.isBlank()) {
-            return Mono.error(new IllegalArgumentException("User ID is required for check-in"));
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required for check-in"));
         }
 
+        // Server-Side Clock Authority: Always determine date and time strictly on server in Asia/Kolkata
         LocalDate today = LocalDate.now(IST_ZONE);
         Instant now = Instant.now();
 
         return staffAttendanceRepository.findByUserIdAndAttendanceDate(userId, today)
             .flatMap(existing -> {
-                LOG.info("User {} already checked in today at {}", userId, existing.getCheckInTime());
+                LOG.info("User [{}] already has an existing check-in for today [{}] at {}. Punch is immutable.",
+                    userId, today, existing.getCheckInTime());
                 return Mono.just(toDTO(existing));
             })
             .switchIfEmpty(
@@ -94,7 +102,7 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
     @Override
     public Mono<StaffAttendanceDTO> checkOut(String userId, String note) {
         if (userId == null || userId.isBlank()) {
-            return Mono.error(new IllegalArgumentException("User ID is required for check-out"));
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required for check-out"));
         }
 
         LocalDate today = LocalDate.now(IST_ZONE);
@@ -102,25 +110,27 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
 
         return staffAttendanceRepository.findByUserIdAndAttendanceDate(userId, today)
             .switchIfEmpty(
-                // Auto-create check-in if staff forgot to punch in morning
-                Mono.defer(() -> {
-                    StaffAttendance autoIn = new StaffAttendance();
-                    autoIn.setUserId(userId);
-                    autoIn.setAttendanceDate(today);
-                    autoIn.setCheckInTime(now.minus(Duration.ofHours(4))); // fallback 4 hrs
-                    autoIn.setWorkMode("OFFICE");
-                    autoIn.setStatus("PRESENT");
-                    autoIn.setCreatedAt(now);
-                    return staffAttendanceRepository.save(autoIn);
-                })
+                Mono.error(new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Cannot punch out: No active check-in record found for today (" + today + "). You must punch in before punching out."
+                ))
             )
             .flatMap(attendance -> {
-                attendance.setCheckOutTime(now);
-                attendance.setCheckOutNote(note);
-                attendance.setUpdatedAt(now);
+                // Anti-Forgery / Immutability Check: If checkout already occurred, prevent modifying or extending shift
+                if (attendance.getCheckOutTime() != null) {
+                    LOG.warn("SECURITY ALERT: User [{}] attempted to overwrite finalized check-out for date [{}]", userId, today);
+                    return Mono.error(new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Shift Finalized: Today's shift was already checked out and locked at " + attendance.getCheckOutTime() + ". Tampering is prohibited."
+                    ));
+                }
 
                 Instant inTime = attendance.getCheckInTime() != null ? attendance.getCheckInTime() : now;
                 long minutes = Math.max(0, Duration.between(inTime, now).toMinutes());
+
+                attendance.setCheckOutTime(now);
+                attendance.setCheckOutNote(note);
+                attendance.setUpdatedAt(now);
                 attendance.setTotalMinutes((int) minutes);
 
                 long hours = minutes / 60;
@@ -234,4 +244,3 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
         return dto;
     }
 }
-
