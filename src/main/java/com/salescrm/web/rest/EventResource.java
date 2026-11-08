@@ -115,20 +115,6 @@ public class EventResource {
                             leadActivityService.logActivity(act).subscribe(null, err -> LOG.warn("Could not log reminder activity: {}", err.getMessage()));
                         }
 
-                        // Send instant push notification confirming reminder creation
-                        if (firebasePushNotificationService != null) {
-                            String candidate = result.getCandidateName() != null ? result.getCandidateName() : "Candidate";
-                            String pTitle = "🔔 Reminder Set: " + result.getTitle();
-                            String pBody = "Scheduled for " + candidate + " on " + result.getEventDate() + " at " + (result.getEventTime() != null ? result.getEventTime() : "09:00");
-                            Map<String, String> data = new java.util.HashMap<>();
-                            data.put("type", "REMINDER_SET");
-                            data.put("eventId", String.valueOf(result.getId()));
-                            if (result.getCandidateId() != null) {
-                                data.put("leadId", String.valueOf(result.getCandidateId()));
-                            }
-                            firebasePushNotificationService.sendPushNotification(result.getUserId(), pTitle, pBody, data);
-                        }
-
                         return ResponseEntity.created(new URI("/api/events/" + result.getId())).body(result);
                     } catch (URISyntaxException e) {
                         throw new RuntimeException(e);
