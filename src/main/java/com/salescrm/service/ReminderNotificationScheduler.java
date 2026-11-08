@@ -98,12 +98,13 @@ public class ReminderNotificationScheduler {
                 String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
 
                 // Format clean reminder message: strictly user-entered data; zero static boilerplate
-                String message = "";
+                String tempMessage = "";
                 if (event.getDescription() != null && !event.getDescription().isBlank()) {
-                    message = event.getDescription().trim();
+                    tempMessage = event.getDescription().trim();
                 } else if (cleanCandidate != null && !cleanCandidate.isBlank() && !cleanCandidate.equalsIgnoreCase(title)) {
-                    message = cleanCandidate;
+                    tempMessage = cleanCandidate;
                 }
+                final String message = tempMessage;
 
                 String targetUserId = (event.getUserId() != null && !event.getUserId().isBlank()) ? event.getUserId() : "admin";
                 CrmNotification notification = new CrmNotification();

@@ -132,12 +132,26 @@ public class NotificationResource {
      * {@code PATCH  /api/notifications/:id/read} : Mark a single notification as read.
      */
     @PatchMapping("/{id}/read")
-    public Mono<ResponseEntity<CrmNotification>> markAsRead(@PathVariable UUID id) {
+    public Mono<ResponseEntity<CrmNotification>> markAsRead(@PathVariable String id) {
         LOG.debug("REST request to mark notification {} as read", id);
+        if (id == null || id.isBlank()) {
+            return Mono.just(ResponseEntity.noContent().build());
+        }
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Non-UUID notification id received for markAsRead: {}. Returning noContent.", id);
+            return Mono.just(ResponseEntity.noContent().build());
+        }
         return crmNotificationService
-            .markAsRead(id)
+            .markAsRead(uuid)
             .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+            .defaultIfEmpty(ResponseEntity.noContent().build());
+    }
+
+    public Mono<ResponseEntity<CrmNotification>> markAsRead(UUID id) {
+        return markAsRead(id != null ? id.toString() : null);
     }
 
     /**
@@ -162,9 +176,23 @@ public class NotificationResource {
      * {@code DELETE  /api/notifications/:id} : Delete a single notification.
      */
     @DeleteMapping("/{id}")
-    public Mono<ResponseEntity<Void>> deleteNotification(@PathVariable UUID id) {
+    public Mono<ResponseEntity<Void>> deleteNotification(@PathVariable String id) {
         LOG.debug("REST request to delete notification: {}", id);
-        return crmNotificationService.deleteNotification(id).thenReturn(ResponseEntity.noContent().build());
+        if (id == null || id.isBlank()) {
+            return Mono.just(ResponseEntity.noContent().build());
+        }
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Non-UUID notification id received for deleteNotification: {}. Returning noContent.", id);
+            return Mono.just(ResponseEntity.noContent().build());
+        }
+        return crmNotificationService.deleteNotification(uuid).thenReturn(ResponseEntity.noContent().build());
+    }
+
+    public Mono<ResponseEntity<Void>> deleteNotification(UUID id) {
+        return deleteNotification(id != null ? id.toString() : null);
     }
 
     /**
