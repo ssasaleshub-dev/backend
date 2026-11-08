@@ -97,14 +97,12 @@ public class ReminderNotificationScheduler {
                 String title = event.getTitle();
                 String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
 
-                // Format clean reminder message preserving original user intent
-                String message;
+                // Format clean reminder message: strictly user-entered data; zero static boilerplate
+                String message = "";
                 if (event.getDescription() != null && !event.getDescription().isBlank()) {
-                    message = event.getDescription();
-                } else if (cleanCandidate != null && !cleanCandidate.isBlank()) {
-                    message = "Reminder for " + cleanCandidate + " (Scheduled for " + timeStr + ")";
-                } else {
-                    message = "Scheduled for " + timeStr;
+                    message = event.getDescription().trim();
+                } else if (cleanCandidate != null && !cleanCandidate.isBlank() && !cleanCandidate.equalsIgnoreCase(title)) {
+                    message = cleanCandidate;
                 }
 
                 String targetUserId = (event.getUserId() != null && !event.getUserId().isBlank()) ? event.getUserId() : "admin";
