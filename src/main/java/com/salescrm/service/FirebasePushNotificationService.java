@@ -68,21 +68,19 @@ public class FirebasePushNotificationService {
     }
 
     public String getToken(String userId) {
-        if (userId == null) return userTokens.get("default");
-        String t = userTokens.get(userId.toLowerCase());
-        return t != null ? t : userTokens.get("default");
+        if (userId == null) return null;
+        return userTokens.get(userId.toLowerCase());
     }
 
     public void sendPushNotification(String userId, String title, String body, Map<String, String> data) {
-        String token = getToken(userId);
-        if (token == null && !userTokens.isEmpty()) {
-            LOG.info("No direct token for user {}, broadcasting to all {} registered staff devices", userId, userTokens.size());
-            sendPushNotificationToAll(title, body, data);
+        if (userId == null) {
+            LOG.warn("Target userId is null. Skipping push notification.");
             return;
         }
 
+        String token = getToken(userId);
         if (token == null) {
-            LOG.warn("No active FCM device token available for user: {}. Tokens registered: {}", userId, userTokens.keySet());
+            LOG.warn("No active FCM device token available for user: {}. Skipping push notification (will never broadcast private reminder to other staff).", userId);
             return;
         }
 

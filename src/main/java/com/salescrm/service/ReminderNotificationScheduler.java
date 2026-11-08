@@ -84,19 +84,32 @@ public class ReminderNotificationScheduler {
                 return !now.isBefore(triggerTime) && !now.isAfter(eventDateTime.plusDays(7));
             })
             .flatMap(event -> {
-                LOG.info("Dispatching reminder notification for event: {} (candidate: {})", event.getTitle(), event.getCandidateName());
+                LOG.info("Dispatching reminder notification for event: {} (candidate: {}, owner: {})", event.getTitle(), event.getCandidateName(), event.getUserId());
                 event.setIsPersisted();
                 event.setNotificationSent(Boolean.TRUE);
 
-                String candidateName = event.getCandidateName() != null ? event.getCandidateName() : "Candidate";
+                String rawCandidate = event.getCandidateName();
+                String cleanCandidate = null;
+                if (rawCandidate != null && !rawCandidate.isBlank()) {
+                    cleanCandidate = rawCandidate.replaceFirst("(?i)^Candidate:\\s*", "").trim();
+                }
+
                 String title = "🔔 Reminder: " + event.getTitle();
                 String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
-                String message = "Reminder for candidate " + candidateName + ": " +
-                    (event.getDescription() != null && !event.getDescription().isBlank() ? event.getDescription() : event.getTitle()) +
-                    " (Scheduled for " + timeStr + ")";
 
+                // Format clean reminder message preserving original user intent
+                String message;
+                if (event.getDescription() != null && !event.getDescription().isBlank()) {
+                    message = event.getDescription();
+                } else if (cleanCandidate != null && !cleanCandidate.isBlank()) {
+                    message = "Reminder for " + cleanCandidate + " (Scheduled for " + timeStr + ")";
+                } else {
+                    message = "Scheduled for " + timeStr;
+                }
+
+                String targetUserId = (event.getUserId() != null && !event.getUserId().isBlank()) ? event.getUserId() : "admin";
                 CrmNotification notification = new CrmNotification();
-                notification.setUserId(event.getUserId() != null ? event.getUserId() : "admin");
+                notification.setUserId(targetUserId);
                 notification.setTitle(title);
                 notification.setMessage(message);
                 notification.setType("REMINDER");
@@ -118,18 +131,14 @@ public class ReminderNotificationScheduler {
                 data.put("title", title);
                 data.put("message", message);
 
-                // Save event update and notification, then dispatch FCM push
+                // Save event update and notification, then dispatch FCM push strictly to original owner
                 return crmEventRepository.save(event)
                     .then(crmNotificationService.createNotification(notification))
                     .doOnSuccess(savedNotif -> {
-                        if (firebasePushNotificationService != null) {
+                        if (firebasePushNotificationService != null && targetUserId != null) {
+                            // Send strictly to the original reminder receiver ONLY - NEVER broadcast to all users
                             firebasePushNotificationService.sendPushNotification(
-                                notification.getUserId(),
-                                title,
-                                message,
-                                data
-                            );
-                            firebasePushNotificationService.sendPushNotificationToAll(
+                                targetUserId,
                                 title,
                                 message,
                                 data
