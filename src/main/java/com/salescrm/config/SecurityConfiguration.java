@@ -67,6 +67,7 @@ public class SecurityConfiguration {
                 authz
                     .pathMatchers("/", "/index.html", "/favicon.ico", "/static/**").permitAll()
                     .pathMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                    .pathMatchers("/ws/**").permitAll()
                     .pathMatchers("/api/authenticate").permitAll()
                     .pathMatchers("/api/register").permitAll()
                     .pathMatchers("/api/activate").permitAll()
