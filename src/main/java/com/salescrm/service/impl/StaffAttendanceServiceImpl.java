@@ -58,6 +58,9 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
         if (userId == null || userId.isBlank()) {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required for check-in"));
         }
+        if ("admin".equalsIgnoreCase(userId.trim()) || "administrator".equalsIgnoreCase(userId.trim())) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Administrators do not log staff shift attendance."));
+        }
 
         // Server-Side Clock Authority: Always determine date and time strictly on server in Asia/Kolkata
         LocalDate today = LocalDate.now(IST_ZONE);
@@ -186,7 +189,9 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
             flux = staffAttendanceRepository.findAllByAttendanceDateBetweenOrderByAttendanceDateDescCheckInTimeDesc(start, end);
         }
 
-        return flux.map(this::toDTO);
+        return flux
+            .filter(a -> a.getUserId() == null || (!"admin".equalsIgnoreCase(a.getUserId().trim()) && !"administrator".equalsIgnoreCase(a.getUserId().trim())))
+            .map(this::toDTO);
     }
 
     @Override
@@ -195,6 +200,7 @@ public class StaffAttendanceServiceImpl implements StaffAttendanceService {
         LocalDate targetDate = date != null ? date : LocalDate.now(IST_ZONE);
 
         return staffAttendanceRepository.findAllByAttendanceDateOrderByCheckInTimeDesc(targetDate)
+            .filter(a -> a.getUserId() == null || (!"admin".equalsIgnoreCase(a.getUserId().trim()) && !"administrator".equalsIgnoreCase(a.getUserId().trim())))
             .collectList()
             .flatMap(list -> {
                 long totalPresent = list.size();
