@@ -37,6 +37,7 @@ public class ReminderNotificationScheduler {
     private static final Logger LOG = LoggerFactory.getLogger(ReminderNotificationScheduler.class);
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Kolkata");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy").withZone(DEFAULT_ZONE);
+    private static final DateTimeFormatter TIME_12H_FORMATTER = DateTimeFormatter.ofPattern("hh:mm a").withZone(DEFAULT_ZONE);
 
     private final CrmEventRepository crmEventRepository;
     private final CrmNotificationRepository crmNotificationRepository;
@@ -89,9 +90,10 @@ public class ReminderNotificationScheduler {
 
                 String candidateName = event.getCandidateName() != null ? event.getCandidateName() : "Candidate";
                 String title = "🔔 Reminder: " + event.getTitle();
+                String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
                 String message = "Reminder for candidate " + candidateName + ": " +
                     (event.getDescription() != null && !event.getDescription().isBlank() ? event.getDescription() : event.getTitle()) +
-                    " (Scheduled for " + (event.getEventTime() != null ? event.getEventTime().toString() : "today") + ")";
+                    " (Scheduled for " + timeStr + ")";
 
                 CrmNotification notification = new CrmNotification();
                 notification.setUserId(event.getUserId() != null ? event.getUserId() : "admin");
