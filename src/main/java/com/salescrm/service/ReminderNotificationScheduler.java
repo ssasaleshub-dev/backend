@@ -107,42 +107,54 @@ public class ReminderNotificationScheduler {
                 final String message = tempMessage;
 
                 String targetUserId = (event.getUserId() != null && !event.getUserId().isBlank()) ? event.getUserId() : "admin";
-                CrmNotification notification = new CrmNotification();
-                notification.setUserId(targetUserId);
-                notification.setTitle(title);
-                notification.setMessage(message);
-                notification.setType("REMINDER");
-                notification.setIsRead(Boolean.FALSE);
-                if (event.getCandidateId() != null) {
-                    notification.setReferenceId(LeadIdCrypto.encrypt(event.getCandidateId()));
-                    notification.setReferenceType("LEAD");
-                } else {
-                    notification.setReferenceId(event.getId() != null ? event.getId().toString() : null);
-                    notification.setReferenceType("EVENT");
-                }
+                String refId = event.getCandidateId() != null
+                    ? LeadIdCrypto.encrypt(event.getCandidateId())
+                    : (event.getId() != null ? event.getId().toString() : null);
+                String refType = event.getCandidateId() != null ? "LEAD" : "EVENT";
 
-                Map<String, String> data = new HashMap<>();
-                if (event.getCandidateId() != null) {
-                    data.put("leadId", String.valueOf(event.getCandidateId()));
-                    data.put("encryptedLeadId", LeadIdCrypto.encrypt(event.getCandidateId()));
-                }
-                data.put("type", "REMINDER");
-                data.put("title", title);
-                data.put("message", message);
+                return crmNotificationRepository.countByUserIdAndReferenceIdAndType(targetUserId, refId, "REMINDER")
+                    .defaultIfEmpty(0L)
+                    .flatMap(existingCount -> {
+                        event.setIsPersisted();
+                        event.setNotificationSent(Boolean.TRUE);
 
-                // Save event update and notification, then dispatch FCM push strictly to original owner
-                return crmEventRepository.save(event)
-                    .then(crmNotificationService.createNotification(notification))
-                    .doOnSuccess(savedNotif -> {
-                        if (firebasePushNotificationService != null && targetUserId != null) {
-                            // Send strictly to the original reminder receiver ONLY - NEVER broadcast to all users
-                            firebasePushNotificationService.sendPushNotification(
-                                targetUserId,
-                                title,
-                                message,
-                                data
-                            );
+                        if (existingCount != null && existingCount > 0) {
+                            LOG.info("Notification already exists for event {} (ref: {}), skipping duplicate creation", event.getTitle(), refId);
+                            return crmEventRepository.save(event);
                         }
+
+                        CrmNotification notification = new CrmNotification();
+                        notification.setUserId(targetUserId);
+                        notification.setTitle(title);
+                        notification.setMessage(message);
+                        notification.setType("REMINDER");
+                        notification.setIsRead(Boolean.FALSE);
+                        notification.setReferenceId(refId);
+                        notification.setReferenceType(refType);
+
+                        Map<String, String> data = new HashMap<>();
+                        if (event.getCandidateId() != null) {
+                            data.put("leadId", String.valueOf(event.getCandidateId()));
+                            data.put("encryptedLeadId", LeadIdCrypto.encrypt(event.getCandidateId()));
+                        }
+                        data.put("type", "REMINDER");
+                        data.put("title", title);
+                        data.put("message", message);
+
+                        // Save event update and notification, then dispatch FCM push strictly to original owner
+                        return crmEventRepository.save(event)
+                            .then(crmNotificationService.createNotification(notification))
+                            .doOnSuccess(savedNotif -> {
+                                if (firebasePushNotificationService != null && targetUserId != null) {
+                                    // Send strictly to the original reminder receiver ONLY - NEVER broadcast to all users
+                                    firebasePushNotificationService.sendPushNotification(
+                                        targetUserId,
+                                        title,
+                                        message,
+                                        data
+                                    );
+                                }
+                            });
                     });
             })
             .subscribe(
