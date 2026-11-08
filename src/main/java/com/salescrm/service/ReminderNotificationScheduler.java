@@ -94,7 +94,7 @@ public class ReminderNotificationScheduler {
                     cleanCandidate = rawCandidate.replaceFirst("(?i)^Candidate:\\s*", "").trim();
                 }
 
-                String title = "🔔 Reminder: " + event.getTitle();
+                String title = event.getTitle();
                 String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
 
                 // Format clean reminder message preserving original user intent
