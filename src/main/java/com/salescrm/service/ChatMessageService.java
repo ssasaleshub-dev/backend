@@ -74,4 +74,18 @@ public interface ChatMessageService {
      * @return Mono signaling completion.
      */
     Mono<Void> markP2pAsRead(Long recipientId, Long senderId);
+
+    /**
+     * Reactive live stream of newly published chat messages.
+     *
+     * @return Flux of newly saved chat message DTOs in real-time.
+     */
+    Flux<ChatMessageDTO> getLiveMessageStream();
+
+    /**
+     * Broadcasts a chat message DTO to all connected live subscribers.
+     *
+     * @param message the message to broadcast.
+     */
+    void broadcastMessage(ChatMessageDTO message);
 }

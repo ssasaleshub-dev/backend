@@ -8,14 +8,18 @@ import com.salescrm.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.reactive.ResponseUtil;
@@ -183,5 +187,32 @@ public class ChatMessageResource {
             .flatMap(userService::getUserWithAuthoritiesByLogin)
             .flatMap(currentUser -> chatMessageService.markP2pAsRead(currentUser.getId(), otherUserId))
             .thenReturn(ResponseEntity.noContent().build());
+    }
+
+    /**
+     * {@code GET  /api/messages/stream} : Server-Sent Events (SSE) stream for live chat messages.
+     * Real-time stream of all incoming team & P2P messages with periodic keepalive heartbeats.
+     * Works natively through standard HTTPS (port 443) and Cloudflare proxies without port blocking.
+     *
+     * @return Flux of ServerSentEvent containing newly posted ChatMessageDTOs.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<ChatMessageDTO>> streamMessages() {
+        LOG.debug("Subscribing client to live chat SSE stream");
+        Flux<ServerSentEvent<ChatMessageDTO>> messageFlux = chatMessageService.getLiveMessageStream()
+            .map(dto -> ServerSentEvent.<ChatMessageDTO>builder()
+                .event("message")
+                .data(dto)
+                .build()
+            );
+
+        Flux<ServerSentEvent<ChatMessageDTO>> heartbeatFlux = Flux.interval(Duration.ofSeconds(15))
+            .map(tick -> ServerSentEvent.<ChatMessageDTO>builder()
+                .event("ping")
+                .comment("keepalive")
+                .build()
+            );
+
+        return Flux.merge(messageFlux, heartbeatFlux);
     }
 }

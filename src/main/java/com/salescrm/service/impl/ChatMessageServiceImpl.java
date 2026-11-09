@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 /**
  * Service Implementation for managing {@link ChatMessage}.
@@ -29,6 +30,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageMapper chatMessageMapper;
     private final UserRepository userRepository;
+    private final Sinks.Many<ChatMessageDTO> chatSink = Sinks.many().multicast().onBackpressureBuffer();
 
     public ChatMessageServiceImpl(
         ChatMessageRepository chatMessageRepository,
@@ -62,7 +64,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 return chatMessageRepository.save(chatMessage);
             })
             .map(chatMessageMapper::toDto)
-            .flatMap(this::enrichDTO);
+            .flatMap(this::enrichDTO)
+            .doOnNext(this::broadcastMessage);
     }
 
     @Override
@@ -121,6 +124,19 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     public Mono<Void> markP2pAsRead(Long recipientId, Long senderId) {
         LOG.debug("Request to mark P2P messages as read for recipient {} from sender {}", recipientId, senderId);
         return chatMessageRepository.markP2pAsRead(recipientId, senderId);
+    }
+
+    @Override
+    public Flux<ChatMessageDTO> getLiveMessageStream() {
+        return chatSink.asFlux();
+    }
+
+    @Override
+    public void broadcastMessage(ChatMessageDTO message) {
+        if (message != null) {
+            LOG.info("[LiveChat] Broadcasting message id={} channel={} from={}", message.getId(), message.getChannel(), message.getUserName());
+            chatSink.tryEmitNext(message);
+        }
     }
 
     private Mono<Long> resolveUserId(Long providedUserId) {
