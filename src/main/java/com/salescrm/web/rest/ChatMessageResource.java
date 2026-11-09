@@ -121,12 +121,38 @@ public class ChatMessageResource {
     }
 
     /**
+     * {@code GET  /api/messages/stream} : Server-Sent Events (SSE) stream for live chat messages.
+     * Real-time stream of all incoming team & P2P messages with periodic keepalive heartbeats.
+     *
+     * @return Flux of ServerSentEvent containing newly posted ChatMessageDTOs.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<ChatMessageDTO>> streamMessages() {
+        LOG.debug("Subscribing client to live chat SSE stream");
+        Flux<ServerSentEvent<ChatMessageDTO>> messageFlux = chatMessageService.getLiveMessageStream()
+            .map(dto -> ServerSentEvent.<ChatMessageDTO>builder()
+                .event("message")
+                .data(dto)
+                .build()
+            );
+
+        Flux<ServerSentEvent<ChatMessageDTO>> heartbeatFlux = Flux.interval(Duration.ofSeconds(15))
+            .map(tick -> ServerSentEvent.<ChatMessageDTO>builder()
+                .event("ping")
+                .comment("keepalive")
+                .build()
+            );
+
+        return Flux.merge(messageFlux, heartbeatFlux);
+    }
+
+    /**
      * {@code GET  /api/messages/:id} : Get the chat message with the given ID.
      *
      * @param id the id of the chatMessageDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the chatMessageDTO, or with status {@code 404 (Not Found)}.
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public Mono<ResponseEntity<ChatMessageDTO>> getMessage(@PathVariable Long id) {
         LOG.debug("REST request to get ChatMessage : {}", id);
         return ResponseUtil.wrapOrNotFound(chatMessageService.findOne(id));
@@ -138,7 +164,7 @@ public class ChatMessageResource {
      * @param id the id of the chatMessageDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public Mono<ResponseEntity<Void>> deleteMessage(@PathVariable Long id) {
         LOG.debug("REST request to delete ChatMessage : {}", id);
         return chatMessageService
@@ -187,32 +213,5 @@ public class ChatMessageResource {
             .flatMap(userService::getUserWithAuthoritiesByLogin)
             .flatMap(currentUser -> chatMessageService.markP2pAsRead(currentUser.getId(), otherUserId))
             .thenReturn(ResponseEntity.noContent().build());
-    }
-
-    /**
-     * {@code GET  /api/messages/stream} : Server-Sent Events (SSE) stream for live chat messages.
-     * Real-time stream of all incoming team & P2P messages with periodic keepalive heartbeats.
-     * Works natively through standard HTTPS (port 443) and Cloudflare proxies without port blocking.
-     *
-     * @return Flux of ServerSentEvent containing newly posted ChatMessageDTOs.
-     */
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<ChatMessageDTO>> streamMessages() {
-        LOG.debug("Subscribing client to live chat SSE stream");
-        Flux<ServerSentEvent<ChatMessageDTO>> messageFlux = chatMessageService.getLiveMessageStream()
-            .map(dto -> ServerSentEvent.<ChatMessageDTO>builder()
-                .event("message")
-                .data(dto)
-                .build()
-            );
-
-        Flux<ServerSentEvent<ChatMessageDTO>> heartbeatFlux = Flux.interval(Duration.ofSeconds(15))
-            .map(tick -> ServerSentEvent.<ChatMessageDTO>builder()
-                .event("ping")
-                .comment("keepalive")
-                .build()
-            );
-
-        return Flux.merge(messageFlux, heartbeatFlux);
     }
 }
