@@ -27,8 +27,8 @@ public class FirebasePushNotificationService {
     @Autowired(required = false)
     private FirebaseMessaging firebaseMessaging;
 
-    // Resilient device token cache (userId -> fcmToken)
-    private final Map<String, String> userTokens = new ConcurrentHashMap<>();
+    // Resilient device token cache (userId -> Set of fcmTokens)
+    private final Map<String, Set<String>> userTokens = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
@@ -38,10 +38,18 @@ public class FirebasePushNotificationService {
                 try (InputStream in = Files.newInputStream(TOKENS_FILE)) {
                     props.load(in);
                     for (String key : props.stringPropertyNames()) {
-                        userTokens.put(key.toLowerCase(), props.getProperty(key));
+                        String val = props.getProperty(key);
+                        if (val != null && !val.isBlank()) {
+                            Set<String> tokens = userTokens.computeIfAbsent(key.toLowerCase(), k -> ConcurrentHashMap.newKeySet());
+                            for (String t : val.split(",")) {
+                                if (!t.trim().isEmpty()) {
+                                    tokens.add(t.trim());
+                                }
+                            }
+                        }
                     }
                 }
-                LOG.info("Loaded {} persisted FCM tokens from disk ({})", userTokens.size(), TOKENS_FILE);
+                LOG.info("Loaded persisted FCM tokens from disk ({})", TOKENS_FILE);
             }
         } catch (Exception e) {
             LOG.warn("Failed to load persisted FCM tokens: {}", e.getMessage());
@@ -51,7 +59,11 @@ public class FirebasePushNotificationService {
     private synchronized void persistTokens() {
         try {
             Properties props = new Properties();
-            props.putAll(userTokens);
+            for (Map.Entry<String, Set<String>> entry : userTokens.entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+                    props.setProperty(entry.getKey(), String.join(",", entry.getValue()));
+                }
+            }
             try (OutputStream out = Files.newOutputStream(TOKENS_FILE)) {
                 props.store(out, "SSA CRM FCM Device Tokens");
             }
@@ -61,25 +73,49 @@ public class FirebasePushNotificationService {
     }
 
     public void registerToken(String userId, String token) {
-        if (userId != null && token != null) {
-            userTokens.put(userId.toLowerCase(), token);
-            userTokens.put("default", token);
+        if (userId != null && token != null && !token.isBlank()) {
+            userTokens.computeIfAbsent(userId.toLowerCase(), k -> ConcurrentHashMap.newKeySet()).add(token);
+            userTokens.computeIfAbsent("default", k -> ConcurrentHashMap.newKeySet()).add(token);
             persistTokens();
-            LOG.info("Registered and persisted FCM token for user: {}", userId);
+            LOG.info("Registered and persisted FCM token for user: {} (token={})", userId, maskToken(token));
+        }
+    }
+
+    public void removeToken(String token) {
+        if (token == null || token.isBlank()) return;
+        boolean changed = false;
+        for (Set<String> tokens : userTokens.values()) {
+            if (tokens.remove(token)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            persistTokens();
+            LOG.info("Removed unregistered FCM token: {}", maskToken(token));
         }
     }
 
     public String getToken(String userId) {
+        Set<String> tokens = getTokens(userId);
+        return tokens.isEmpty() ? null : tokens.iterator().next();
+    }
+
+    public Set<String> getTokens(String userId) {
+        Set<String> result = new HashSet<>();
         if (userId != null) {
-            String t = userTokens.get(userId.toLowerCase());
-            if (t != null) return t;
+            Set<String> t = userTokens.get(userId.toLowerCase());
+            if (t != null) result.addAll(t);
         }
-        return userTokens.get("default");
+        if (result.isEmpty()) {
+            Set<String> def = userTokens.get("default");
+            if (def != null) result.addAll(def);
+        }
+        return result;
     }
 
     public void sendPushNotification(String userId, String title, String body, Map<String, String> data) {
-        String token = getToken(userId);
-        if (token == null) {
+        Set<String> tokens = getTokens(userId);
+        if (tokens.isEmpty()) {
             LOG.warn("No active FCM device token available for user: {}. Skipping push notification.", userId);
             return;
         }
@@ -89,57 +125,17 @@ public class FirebasePushNotificationService {
             return;
         }
 
-        try {
-            Notification notification = Notification.builder()
-                .setTitle(title)
-                .setBody(body)
-                .build();
-
-            AndroidConfig androidConfig = AndroidConfig.builder()
-                .setPriority(AndroidConfig.Priority.HIGH)
-                .setNotification(
-                    AndroidNotification.builder()
-                        .setChannelId("fcm_default_channel")
-                        .setIcon("ic_notification")
-                        .setColor("#029858")
-                        .setSound("default")
-                        .setDefaultSound(true)
-                        .setDefaultVibrateTimings(true)
-                        .setPriority(AndroidNotification.Priority.HIGH)
-                        .setVisibility(AndroidNotification.Visibility.PUBLIC)
-                        .build()
-                )
-                .build();
-
-            Message.Builder messageBuilder = Message.builder()
-                .setToken(token)
-                .setNotification(notification)
-                .setAndroidConfig(androidConfig);
-
-            Map<String, String> payloadData = data != null ? new HashMap<>(data) : new HashMap<>();
-            payloadData.putIfAbsent("title", title);
-            payloadData.putIfAbsent("body", body);
-            messageBuilder.putAllData(payloadData);
-
-            String response = firebaseMessaging.send(messageBuilder.build());
-            LOG.info("FCM push notification sent successfully to user {}: messageId={}", userId, response);
-        } catch (FirebaseMessagingException e) {
-            LOG.error("Failed to send FCM push notification to user {}: {}", userId, e.getMessage());
-            if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
-                userTokens.remove(userId.toLowerCase());
-                persistTokens();
-            }
-        } catch (Exception e) {
-            LOG.error("Unexpected error sending push notification: {}", e.getMessage());
+        for (String token : tokens) {
+            sendDirectPush(token, userId, title, body, data);
         }
     }
 
     public void sendPushNotificationToAll(String title, String body, Map<String, String> data) {
         Set<String> uniqueTokens = new HashSet<>();
-        for (Map.Entry<String, String> entry : userTokens.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : userTokens.entrySet()) {
             if ("default".equalsIgnoreCase(entry.getKey())) continue;
-            if (entry.getValue() != null && !entry.getValue().isBlank()) {
-                uniqueTokens.add(entry.getValue());
+            if (entry.getValue() != null) {
+                uniqueTokens.addAll(entry.getValue());
             }
         }
         for (String token : uniqueTokens) {
@@ -151,24 +147,29 @@ public class FirebasePushNotificationService {
      * Send push notification for P2P direct chat message to recipient.
      */
     public void sendChatPushNotification(String recipientId, String recipientLogin, String title, String body, Map<String, String> data) {
-        String token = null;
+        Set<String> tokens = new HashSet<>();
         if (recipientId != null) {
-            token = userTokens.get(recipientId.toLowerCase());
+            Set<String> t = userTokens.get(recipientId.toLowerCase());
+            if (t != null) tokens.addAll(t);
         }
-        if (token == null && recipientLogin != null) {
-            token = userTokens.get(recipientLogin.toLowerCase());
+        if (recipientLogin != null) {
+            Set<String> t = userTokens.get(recipientLogin.toLowerCase());
+            if (t != null) tokens.addAll(t);
         }
-        if (token == null) {
-            token = userTokens.get("default");
+        if (tokens.isEmpty()) {
+            Set<String> def = userTokens.get("default");
+            if (def != null) tokens.addAll(def);
         }
 
-        if (token == null) {
+        if (tokens.isEmpty()) {
             LOG.warn("No FCM device token available for recipient id={} login={}. Skipping chat push.", recipientId, recipientLogin);
             return;
         }
 
-        LOG.info("Sending P2P chat push notification to recipient id={} login={}", recipientId, recipientLogin);
-        sendDirectPush(token, recipientLogin != null ? recipientLogin : recipientId, title, body, data);
+        LOG.info("Sending P2P chat push notification to recipient id={} login={} across {} device(s)", recipientId, recipientLogin, tokens.size());
+        for (String token : tokens) {
+            sendDirectPush(token, recipientLogin != null ? recipientLogin : recipientId, title, body, data);
+        }
     }
 
     /**
@@ -178,22 +179,37 @@ public class FirebasePushNotificationService {
         String cleanSenderId = senderId != null ? senderId.toLowerCase() : "";
         String cleanSenderLogin = senderLogin != null ? senderLogin.toLowerCase() : "";
 
+        Set<String> senderTokens = new HashSet<>();
+        if (!cleanSenderId.isEmpty() && userTokens.containsKey(cleanSenderId)) {
+            senderTokens.addAll(userTokens.get(cleanSenderId));
+        }
+        if (!cleanSenderLogin.isEmpty() && userTokens.containsKey(cleanSenderLogin)) {
+            senderTokens.addAll(userTokens.get(cleanSenderLogin));
+        }
+
         Set<String> targetTokens = new HashSet<>();
-        for (Map.Entry<String, String> entry : userTokens.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : userTokens.entrySet()) {
             String key = entry.getKey();
             if ("default".equalsIgnoreCase(key)) continue;
             if (key.equalsIgnoreCase(cleanSenderId) || key.equalsIgnoreCase(cleanSenderLogin)) {
                 continue; // Do not send notification to the message author!
             }
-            if (entry.getValue() != null && !entry.getValue().isBlank()) {
-                targetTokens.add(entry.getValue());
+            if (entry.getValue() != null) {
+                for (String t : entry.getValue()) {
+                    if (t != null && !t.isBlank() && !senderTokens.contains(t)) {
+                        targetTokens.add(t);
+                    }
+                }
             }
         }
 
-        // Fallback: If only default token exists and sender is different
+        // Fallback: If only default token exists and not sender's token
         if (targetTokens.isEmpty() && userTokens.containsKey("default")) {
-            String defaultToken = userTokens.get("default");
-            targetTokens.add(defaultToken);
+            for (String dt : userTokens.get("default")) {
+                if (!senderTokens.contains(dt)) {
+                    targetTokens.add(dt);
+                }
+            }
         }
 
         LOG.info("Dispatching Team Chat push notification to {} device(s) (sender={})", targetTokens.size(), senderLogin);
@@ -203,7 +219,7 @@ public class FirebasePushNotificationService {
     }
 
     private void sendDirectPush(String token, String userId, String title, String body, Map<String, String> data) {
-        if (firebaseMessaging == null || token == null) return;
+        if (firebaseMessaging == null || token == null || token.isBlank()) return;
         try {
             Notification notification = Notification.builder()
                 .setTitle(title)
@@ -226,10 +242,22 @@ public class FirebasePushNotificationService {
                 )
                 .build();
 
+            WebpushConfig webpushConfig = WebpushConfig.builder()
+                .setNotification(
+                    WebpushNotification.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .setIcon("/favicon.png")
+                        .build()
+                )
+                .putData("route", data != null && data.containsKey("route") ? data.get("route") : "")
+                .build();
+
             Message.Builder messageBuilder = Message.builder()
                 .setToken(token)
                 .setNotification(notification)
-                .setAndroidConfig(androidConfig);
+                .setAndroidConfig(androidConfig)
+                .setWebpushConfig(webpushConfig);
 
             Map<String, String> payloadData = data != null ? new HashMap<>(data) : new HashMap<>();
             payloadData.putIfAbsent("title", title);
@@ -238,8 +266,18 @@ public class FirebasePushNotificationService {
 
             String response = firebaseMessaging.send(messageBuilder.build());
             LOG.info("FCM push sent to user {}: messageId={}", userId, response);
+        } catch (FirebaseMessagingException e) {
+            LOG.error("Failed to send direct FCM push to user {}: {}", userId, e.getMessage());
+            if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
+                removeToken(token);
+            }
         } catch (Exception e) {
             LOG.error("Failed to send direct FCM push: {}", e.getMessage());
         }
+    }
+
+    private String maskToken(String token) {
+        if (token == null || token.length() <= 12) return "***";
+        return token.substring(0, 6) + "..." + token.substring(token.length() - 6);
     }
 }
