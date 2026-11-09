@@ -1,6 +1,7 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.domain.CrmNotification;
+import com.salescrm.repository.UserRepository;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FirebasePushNotificationService;
@@ -30,15 +31,16 @@ public class NotificationResource {
 
     private final CrmNotificationService crmNotificationService;
     private final FirebasePushNotificationService firebasePushNotificationService;
+    private final UserRepository userRepository;
 
-    public NotificationResource(CrmNotificationService crmNotificationService) {
-        this(crmNotificationService, null);
-    }
-
-    @Autowired
-    public NotificationResource(CrmNotificationService crmNotificationService, @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService) {
+    public NotificationResource(
+        CrmNotificationService crmNotificationService,
+        @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
+        UserRepository userRepository
+    ) {
         this.firebasePushNotificationService = firebasePushNotificationService;
         this.crmNotificationService = crmNotificationService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -48,15 +50,29 @@ public class NotificationResource {
     public Mono<ResponseEntity<Map<String, Object>>> registerFcmToken(@RequestBody Map<String, String> payload) {
         String token = payload != null ? payload.get("token") : null;
         String requestedUserId = payload != null ? payload.get("userId") : null;
+        String numericId = payload != null ? payload.get("numericId") : null;
+
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty(requestedUserId != null && !requestedUserId.isBlank() ? requestedUserId : "admin")
-            .map(userId -> {
+            .flatMap(login -> {
                 if (firebasePushNotificationService != null && token != null) {
-                    firebasePushNotificationService.registerToken(userId, token);
-                    if (requestedUserId != null && !requestedUserId.equalsIgnoreCase(userId)) {
+                    firebasePushNotificationService.registerToken(login, token);
+                    if (requestedUserId != null) {
                         firebasePushNotificationService.registerToken(requestedUserId, token);
                     }
+                    if (numericId != null) {
+                        firebasePushNotificationService.registerToken(numericId, token);
+                    }
                 }
+                return userRepository.findOneByLogin(login)
+                    .doOnNext(user -> {
+                        if (firebasePushNotificationService != null && token != null && user.getId() != null) {
+                            firebasePushNotificationService.registerToken(user.getId().toString(), token);
+                        }
+                    })
+                    .thenReturn(login);
+            })
+            .map(userId -> {
                 Map<String, Object> response = new HashMap<>();
                 response.put("status", "success");
                 response.put("userId", userId);

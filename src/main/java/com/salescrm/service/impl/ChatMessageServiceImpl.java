@@ -6,11 +6,15 @@ import com.salescrm.repository.ChatMessageRepository;
 import com.salescrm.repository.UserRepository;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.ChatMessageService;
+import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.dto.ChatMessageDTO;
 import com.salescrm.service.mapper.ChatMessageMapper;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,16 +34,19 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageMapper chatMessageMapper;
     private final UserRepository userRepository;
+    private final FirebasePushNotificationService pushNotificationService;
     private final Sinks.Many<ChatMessageDTO> chatSink = Sinks.many().multicast().onBackpressureBuffer();
 
     public ChatMessageServiceImpl(
         ChatMessageRepository chatMessageRepository,
         ChatMessageMapper chatMessageMapper,
-        UserRepository userRepository
+        UserRepository userRepository,
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService
     ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageMapper = chatMessageMapper;
         this.userRepository = userRepository;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Override
@@ -65,7 +72,10 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             })
             .map(chatMessageMapper::toDto)
             .flatMap(this::enrichDTO)
-            .doOnNext(this::broadcastMessage);
+            .doOnNext(savedDto -> {
+                broadcastMessage(savedDto);
+                sendChatPushNotification(savedDto);
+            });
     }
 
     @Override
@@ -202,5 +212,71 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             }
             return Mono.just(d);
         });
+    }
+
+    private void sendChatPushNotification(ChatMessageDTO dto) {
+        if (pushNotificationService == null || dto == null) return;
+
+        try {
+            String senderName = dto.getUserName() != null && !dto.getUserName().isBlank()
+                ? dto.getUserName()
+                : (dto.getUserLogin() != null ? dto.getUserLogin() : "Colleague");
+
+            String contentPreview = dto.getContent();
+            if (contentPreview == null || contentPreview.isBlank()) {
+                if ("IMAGE".equalsIgnoreCase(dto.getMediaType()) || (dto.getMediaUrl() != null && dto.getMediaUrl().matches(".*\\.(jpg|jpeg|png|webp|gif).*"))) {
+                    contentPreview = "📷 Photo";
+                } else if ("VIDEO".equalsIgnoreCase(dto.getMediaType())) {
+                    contentPreview = "🎥 Video";
+                } else if (dto.getFileName() != null) {
+                    contentPreview = "📄 " + dto.getFileName();
+                } else if (dto.getMediaUrl() != null) {
+                    contentPreview = "📎 Attachment";
+                } else {
+                    contentPreview = "Sent a message";
+                }
+            }
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "CHAT");
+            data.put("route", "/chat");
+            data.put("click_action", "OPEN_CHAT");
+            data.put("messageId", dto.getId() != null ? dto.getId().toString() : "");
+            data.put("senderId", dto.getUserId() != null ? dto.getUserId().toString() : "");
+            data.put("senderName", senderName);
+
+            if (dto.getRecipientId() != null) {
+                // Direct P2P Chat Push Notification
+                data.put("chatType", "p2p");
+                data.put("channel", "p2p");
+                data.put("recipientId", dto.getRecipientId().toString());
+
+                String title = senderName;
+                String body = contentPreview;
+                pushNotificationService.sendChatPushNotification(
+                    dto.getRecipientId().toString(),
+                    dto.getRecipientLogin(),
+                    title,
+                    body,
+                    data
+                );
+            } else {
+                // Group / Team Chat Push Notification to all colleagues except author
+                data.put("chatType", "group");
+                data.put("channel", dto.getChannel() != null ? dto.getChannel() : "general");
+
+                String title = senderName + " (Team Chat)";
+                String body = contentPreview;
+                pushNotificationService.sendGroupPushNotificationExcept(
+                    dto.getUserId() != null ? dto.getUserId().toString() : "",
+                    dto.getUserLogin(),
+                    title,
+                    body,
+                    data
+                );
+            }
+        } catch (Exception e) {
+            LOG.error("[ChatPush] Error dispatching push notification for message: {}", e.getMessage());
+        }
     }
 }

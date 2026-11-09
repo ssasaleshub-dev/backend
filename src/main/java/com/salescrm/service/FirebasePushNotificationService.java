@@ -8,8 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,9 +135,70 @@ public class FirebasePushNotificationService {
     }
 
     public void sendPushNotificationToAll(String title, String body, Map<String, String> data) {
+        Set<String> uniqueTokens = new HashSet<>();
         for (Map.Entry<String, String> entry : userTokens.entrySet()) {
             if ("default".equalsIgnoreCase(entry.getKey())) continue;
-            sendDirectPush(entry.getValue(), entry.getKey(), title, body, data);
+            if (entry.getValue() != null && !entry.getValue().isBlank()) {
+                uniqueTokens.add(entry.getValue());
+            }
+        }
+        for (String token : uniqueTokens) {
+            sendDirectPush(token, "all_users", title, body, data);
+        }
+    }
+
+    /**
+     * Send push notification for P2P direct chat message to recipient.
+     */
+    public void sendChatPushNotification(String recipientId, String recipientLogin, String title, String body, Map<String, String> data) {
+        String token = null;
+        if (recipientId != null) {
+            token = userTokens.get(recipientId.toLowerCase());
+        }
+        if (token == null && recipientLogin != null) {
+            token = userTokens.get(recipientLogin.toLowerCase());
+        }
+        if (token == null) {
+            token = userTokens.get("default");
+        }
+
+        if (token == null) {
+            LOG.warn("No FCM device token available for recipient id={} login={}. Skipping chat push.", recipientId, recipientLogin);
+            return;
+        }
+
+        LOG.info("Sending P2P chat push notification to recipient id={} login={}", recipientId, recipientLogin);
+        sendDirectPush(token, recipientLogin != null ? recipientLogin : recipientId, title, body, data);
+    }
+
+    /**
+     * Send push notification for Team/Group chat message to all registered team members EXCEPT the sender.
+     */
+    public void sendGroupPushNotificationExcept(String senderId, String senderLogin, String title, String body, Map<String, String> data) {
+        String cleanSenderId = senderId != null ? senderId.toLowerCase() : "";
+        String cleanSenderLogin = senderLogin != null ? senderLogin.toLowerCase() : "";
+
+        Set<String> targetTokens = new HashSet<>();
+        for (Map.Entry<String, String> entry : userTokens.entrySet()) {
+            String key = entry.getKey();
+            if ("default".equalsIgnoreCase(key)) continue;
+            if (key.equalsIgnoreCase(cleanSenderId) || key.equalsIgnoreCase(cleanSenderLogin)) {
+                continue; // Do not send notification to the message author!
+            }
+            if (entry.getValue() != null && !entry.getValue().isBlank()) {
+                targetTokens.add(entry.getValue());
+            }
+        }
+
+        // Fallback: If only default token exists and sender is different
+        if (targetTokens.isEmpty() && userTokens.containsKey("default")) {
+            String defaultToken = userTokens.get("default");
+            targetTokens.add(defaultToken);
+        }
+
+        LOG.info("Dispatching Team Chat push notification to {} device(s) (sender={})", targetTokens.size(), senderLogin);
+        for (String token : targetTokens) {
+            sendDirectPush(token, "group_member", title, body, data);
         }
     }
 

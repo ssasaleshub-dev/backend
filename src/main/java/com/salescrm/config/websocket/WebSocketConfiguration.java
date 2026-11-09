@@ -34,3 +34,4 @@ public class WebSocketConfiguration {
         return new WebSocketHandlerAdapter();
     }
 }
+
