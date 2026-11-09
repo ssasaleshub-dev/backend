@@ -98,6 +98,8 @@ public class FirebasePushNotificationService {
                 .setNotification(
                     AndroidNotification.builder()
                         .setChannelId("fcm_default_channel")
+                        .setIcon("ic_notification")
+                        .setColor("#029858")
                         .setSound("default")
                         .setDefaultSound(true)
                         .setDefaultVibrateTimings(true)
@@ -150,6 +152,8 @@ public class FirebasePushNotificationService {
                 .setNotification(
                     AndroidNotification.builder()
                         .setChannelId("fcm_default_channel")
+                        .setIcon("ic_notification")
+                        .setColor("#029858")
                         .setSound("default")
                         .setDefaultSound(true)
                         .setDefaultVibrateTimings(true)
