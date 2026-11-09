@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -165,27 +167,45 @@ public class CustomerResource {
      *
      * @param pageable the pagination information.
      * @param request a {@link ServerHttpRequest} request.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Customers in body.
+     * @param paged whether to return an encapsulated pagination envelope with metadata (default: false).
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list or page envelope of Customers in body.
      */
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<ResponseEntity<List<CustomerDTO>>> getAllCustomers(
+    public Mono<ResponseEntity<Object>> getAllCustomers(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
-        ServerHttpRequest request
+        ServerHttpRequest request,
+        @RequestParam(name = "paged", required = false, defaultValue = "false") boolean paged
     ) {
-        LOG.debug("REST request to get a page of Customers");
+        LOG.debug("REST request to get a page of Customers, paged: {}", paged);
         return customerService
             .countAll()
             .zipWith(customerService.findAll(pageable).collectList())
-            .map(countWithEntities ->
-                ResponseEntity.ok()
-                    .headers(
-                        PaginationUtil.generatePaginationHttpHeaders(
-                            ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders()),
-                            new PageImpl<>(countWithEntities.getT2(), pageable, countWithEntities.getT1())
-                        )
-                    )
-                    .body(countWithEntities.getT2())
-            );
+            .map(countWithEntities -> {
+                Long total = countWithEntities.getT1();
+                List<CustomerDTO> entities = countWithEntities.getT2();
+                var headers = PaginationUtil.generatePaginationHttpHeaders(
+                    ForwardedHeaderUtils.adaptFromForwardedHeaders(request.getURI(), request.getHeaders()),
+                    new PageImpl<>(entities, pageable, total)
+                );
+
+                if (paged) {
+                    int pageSize = pageable.isPaged() && pageable.getPageSize() > 0 ? pageable.getPageSize() : (entities.isEmpty() ? 20 : entities.size());
+                    int pageNumber = pageable.isPaged() ? pageable.getPageNumber() : 0;
+                    int totalPages = pageSize > 0 ? (int) Math.ceil((double) total / pageSize) : 1;
+                    boolean hasMore = ((long) (pageNumber + 1) * pageSize) < total;
+
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("content", entities);
+                    body.put("totalElements", total);
+                    body.put("totalPages", totalPages);
+                    body.put("page", pageNumber);
+                    body.put("size", pageSize);
+                    body.put("hasMore", hasMore);
+                    return ResponseEntity.ok().headers(headers).body((Object) body);
+                } else {
+                    return ResponseEntity.ok().headers(headers).body((Object) entities);
+                }
+            });
     }
 
     /**
