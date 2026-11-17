@@ -37,6 +37,7 @@ public class NotificationResource {
         this(crmNotificationService, null, null);
     }
 
+    @Autowired
     public NotificationResource(
         CrmNotificationService crmNotificationService,
         @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
