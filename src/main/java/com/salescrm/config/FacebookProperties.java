@@ -22,12 +22,14 @@ public class FacebookProperties {
     private String appSecret;
 
     /**
-     * Secret verification token configured in Meta Developer Portal for webhook handshake.
+     * Secret verification token configured in Meta Developer Portal for webhook
+     * handshake.
      */
     private String verifyToken = "salescrm_leadgen_secret_token";
 
     /**
-     * Long-lived Page Access Token with 'leads_retrieval' and 'pages_manage_ads' permissions.
+     * Long-lived Page Access Token with 'leads_retrieval' and 'pages_manage_ads'
+     * permissions.
      */
     private String pageAccessToken;
 
