@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
  * Loaded from application.yml under prefix "application.facebook".
  */
 @Configuration
-@ConfigurationProperties(prefix = "application.facebook")
+@ConfigurationProperties(prefix = "application.facebook", ignoreUnknownFields = true)
 public class FacebookProperties {
 
     /**
