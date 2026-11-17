@@ -199,7 +199,14 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  facebook:
+    app-id: "${FB_APP_ID:}"
+    app-secret: "${FB_APP_SECRET:}"
+    verify-token: "${FB_VERIFY_TOKEN:salescrm_leadgen_secret_token}"
+    page-access-token: "${FB_PAGE_ACCESS_TOKEN:}"
+    graph-api-version: "${FB_GRAPH_API_VERSION:v21.0}"
+    graph-api-base-url: "${FB_GRAPH_API_BASE_URL:https://graph.facebook.com}"
 
 cloudflare:
   r2:

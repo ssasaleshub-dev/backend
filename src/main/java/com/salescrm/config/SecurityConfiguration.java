@@ -74,6 +74,7 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/activate").permitAll()
                     .pathMatchers("/api/account/reset-password/init").permitAll()
                     .pathMatchers("/api/account/reset-password/finish").permitAll()
+                    .pathMatchers("/api/webhooks/**").permitAll()
                     .pathMatchers("/api/leads/**").permitAll()
                     .pathMatchers("/api/customers/**").permitAll()
                     .pathMatchers("/api/campaigns/**").permitAll()

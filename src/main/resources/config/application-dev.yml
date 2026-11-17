@@ -94,7 +94,10 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  facebook:
+    verify-token: "salescrm_leadgen_secret_token"
+    graph-api-version: "v21.0"
 
 cloudflare:
   r2:
