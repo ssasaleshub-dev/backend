@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
@@ -38,11 +39,12 @@ public class LeadServiceImpl implements LeadService {
         this(leadRepository, leadMapper, databaseClient, null);
     }
 
+    @Autowired
     public LeadServiceImpl(
         LeadRepository leadRepository,
         LeadMapper leadMapper,
         DatabaseClient databaseClient,
-        FirebasePushNotificationService pushNotificationService
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService
     ) {
         this.leadRepository = leadRepository;
         this.leadMapper = leadMapper;
