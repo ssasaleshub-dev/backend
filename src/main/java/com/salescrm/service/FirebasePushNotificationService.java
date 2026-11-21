@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
@@ -183,14 +184,24 @@ public class FirebasePushNotificationService {
     }
 
     public void sendPushNotification(String userId, String title, String body, Map<String, String> data) {
-        Set<String> tokens = getTokens(userId);
-        if (tokens.isEmpty()) {
-            LOG.warn("No active FCM device token available for user: {}. Skipping push notification.", userId);
+        if (firebaseMessaging == null) {
+            LOG.warn("FirebaseMessaging is not initialized. Skipping push notification.");
             return;
         }
 
-        if (firebaseMessaging == null) {
-            LOG.warn("FirebaseMessaging is not initialized. Skipping push notification.");
+        Set<String> tokens = getTokens(userId);
+        if (tokens.isEmpty()) {
+            LOG.warn("No active FCM device token available in cache for user: {}. Checking DB fallback.", userId);
+            if (userDeviceTokenRepository != null && userId != null) {
+                userDeviceTokenRepository.findAllByUserId(userId.toLowerCase())
+                    .map(UserDeviceToken::getToken)
+                    .filter(t -> t != null && !t.isBlank())
+                    .subscribe(dbToken -> {
+                        String clean = dbToken.trim();
+                        userTokens.computeIfAbsent(userId.toLowerCase(), k -> ConcurrentHashMap.newKeySet()).add(clean);
+                        sendDirectPush(clean, userId, title, body, data);
+                    });
+            }
             return;
         }
 
@@ -235,7 +246,22 @@ public class FirebasePushNotificationService {
         }
 
         if (tokens.isEmpty()) {
-            LOG.warn("No FCM device token available for recipient id={} login={}. Skipping chat push.", recipientId, recipientLogin);
+            LOG.warn("No FCM device token available in cache for recipient id={} login={}. Checking DB fallback.", recipientId, recipientLogin);
+            if (userDeviceTokenRepository != null) {
+                Flux.concat(
+                    recipientLogin != null ? userDeviceTokenRepository.findAllByUserId(recipientLogin.toLowerCase()) : Flux.empty(),
+                    recipientId != null ? userDeviceTokenRepository.findAllByUserId(recipientId.toLowerCase()) : Flux.empty()
+                )
+                .map(UserDeviceToken::getToken)
+                .filter(t -> t != null && !t.isBlank())
+                .subscribe(dbToken -> {
+                    String clean = dbToken.trim();
+                    if (recipientLogin != null) {
+                        userTokens.computeIfAbsent(recipientLogin.toLowerCase(), k -> ConcurrentHashMap.newKeySet()).add(clean);
+                    }
+                    sendDirectPush(clean, recipientLogin != null ? recipientLogin : recipientId, title, body, data);
+                });
+            }
             return;
         }
 
@@ -333,27 +359,29 @@ public class FirebasePushNotificationService {
 
             WebpushNotification.Builder webpushBuilder = WebpushNotification.builder()
                 .setTitle(cleanTitle)
-                .setBody(cleanBody);
+                .setBody(cleanBody)
+                .setIcon("/favicon.ico")
+                .setBadge("/favicon.ico");
 
             if (collapseTag != null) {
                 webpushBuilder.setTag(collapseTag);
             }
 
+            Map<String, String> payloadData = data != null ? new HashMap<>(data) : new HashMap<>();
+            payloadData.putIfAbsent("title", cleanTitle);
+            payloadData.putIfAbsent("body", cleanBody);
+
             WebpushConfig webpushConfig = WebpushConfig.builder()
                 .setNotification(webpushBuilder.build())
-                .putData("route", data != null && data.containsKey("route") ? data.get("route") : "")
+                .putAllData(payloadData)
                 .build();
 
             Message.Builder messageBuilder = Message.builder()
                 .setToken(token)
                 .setNotification(notification)
                 .setAndroidConfig(androidConfigBuilder.build())
-                .setWebpushConfig(webpushConfig);
-
-            Map<String, String> payloadData = data != null ? new HashMap<>(data) : new HashMap<>();
-            payloadData.putIfAbsent("title", cleanTitle);
-            payloadData.putIfAbsent("body", cleanBody);
-            messageBuilder.putAllData(payloadData);
+                .setWebpushConfig(webpushConfig)
+                .putAllData(payloadData);
 
             String response = firebaseMessaging.send(messageBuilder.build());
             LOG.info("FCM push sent to user {}: messageId={}", userId, response);

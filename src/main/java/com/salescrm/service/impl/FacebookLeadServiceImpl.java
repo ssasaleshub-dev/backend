@@ -4,6 +4,7 @@ import com.salescrm.domain.*;
 import com.salescrm.domain.enumeration.LeadStatus;
 import com.salescrm.domain.enumeration.PlatformType;
 import com.salescrm.repository.*;
+import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FacebookLeadService;
 import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadActivityService;
@@ -48,6 +49,8 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     private final DateTimeParser dateTimeParser;
     private final LeadActivityService leadActivityService;
     private final FirebasePushNotificationService pushNotificationService;
+    private final CrmNotificationService crmNotificationService;
+    private final UserRepository userRepository;
 
     public FacebookLeadServiceImpl(
         FacebookGraphApiClient graphApiClient,
@@ -76,6 +79,8 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             phoneNormalizer,
             dateTimeParser,
             leadActivityService,
+            null,
+            null,
             null
         );
     }
@@ -94,7 +99,9 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         PhoneNormalizer phoneNormalizer,
         DateTimeParser dateTimeParser,
         @Autowired(required = false) LeadActivityService leadActivityService,
-        @Autowired(required = false) FirebasePushNotificationService pushNotificationService
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService,
+        @Autowired(required = false) CrmNotificationService crmNotificationService,
+        @Autowired(required = false) UserRepository userRepository
     ) {
         this.graphApiClient = graphApiClient;
         this.leadMapper = leadMapper;
@@ -109,6 +116,8 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         this.dateTimeParser = dateTimeParser;
         this.leadActivityService = leadActivityService;
         this.pushNotificationService = pushNotificationService;
+        this.crmNotificationService = crmNotificationService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -508,7 +517,30 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             data.put("phoneNumber", phone);
             data.put("route", "/leads");
 
-            pushNotificationService.sendPushNotificationToAll(title, body, data);
+            if (pushNotificationService != null) {
+                pushNotificationService.sendPushNotificationToAll(title, body, data);
+            }
+
+            // MNC Standard: Persist in-app notification in crm_notifications table for all staff
+            if (crmNotificationService != null && userRepository != null) {
+                userRepository.findAll()
+                    .flatMap(user -> {
+                        CrmNotification notif = new CrmNotification();
+                        notif.setUserId(user.getLogin().toLowerCase());
+                        notif.setTitle(title);
+                        notif.setMessage(body);
+                        notif.setType("NEW_LEAD");
+                        notif.setReferenceId(savedLead.getId() != null ? savedLead.getId().toString() : null);
+                        notif.setReferenceType("LEAD");
+                        notif.setIsRead(Boolean.FALSE);
+                        notif.setCreatedAt(Instant.now());
+                        return crmNotificationService.createNotification(notif);
+                    })
+                    .subscribe(
+                        saved -> LOG.debug("[FacebookLeadNotification] Persisted in-app lead notification for user: {}", saved.getUserId()),
+                        err -> LOG.error("[FacebookLeadNotification] Failed to persist in-app lead notification: {}", err.getMessage())
+                    );
+            }
         } catch (Exception e) {
             LOG.error("Failed to dispatch push notification for new lead {}: {}", savedLead.getId(), e.getMessage());
         }

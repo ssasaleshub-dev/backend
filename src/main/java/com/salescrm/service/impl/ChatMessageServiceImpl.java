@@ -1,17 +1,20 @@
 package com.salescrm.service.impl;
 
 import com.salescrm.domain.ChatMessage;
+import com.salescrm.domain.CrmNotification;
 import com.salescrm.domain.User;
 import com.salescrm.repository.ChatMessageRepository;
 import com.salescrm.repository.UserRepository;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.ChatMessageService;
+import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.dto.ChatMessageDTO;
 import com.salescrm.service.mapper.ChatMessageMapper;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +38,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final ChatMessageMapper chatMessageMapper;
     private final UserRepository userRepository;
     private final FirebasePushNotificationService pushNotificationService;
+    private final CrmNotificationService crmNotificationService;
     private final Sinks.Many<ChatMessageDTO> chatSink = Sinks.many().multicast().onBackpressureBuffer();
 
     public ChatMessageServiceImpl(
@@ -43,10 +47,22 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         UserRepository userRepository,
         @Autowired(required = false) FirebasePushNotificationService pushNotificationService
     ) {
+        this(chatMessageRepository, chatMessageMapper, userRepository, pushNotificationService, null);
+    }
+
+    @Autowired
+    public ChatMessageServiceImpl(
+        ChatMessageRepository chatMessageRepository,
+        ChatMessageMapper chatMessageMapper,
+        UserRepository userRepository,
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService,
+        @Autowired(required = false) CrmNotificationService crmNotificationService
+    ) {
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageMapper = chatMessageMapper;
         this.userRepository = userRepository;
         this.pushNotificationService = pushNotificationService;
+        this.crmNotificationService = crmNotificationService;
     }
 
     @Override
@@ -243,7 +259,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     }
 
     private void sendChatPushNotification(ChatMessageDTO dto) {
-        if (pushNotificationService == null || dto == null) return;
+        if (dto == null) return;
 
         try {
             String senderName = dto.getUserName() != null && !dto.getUserName().isBlank()
@@ -289,13 +305,35 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
                 String title = senderName;
                 String body = contentPreview;
-                pushNotificationService.sendChatPushNotification(
-                    recipientIdStr,
-                    recipientLoginStr,
-                    title,
-                    body,
-                    data
-                );
+                if (pushNotificationService != null) {
+                    pushNotificationService.sendChatPushNotification(
+                        recipientIdStr,
+                        recipientLoginStr,
+                        title,
+                        body,
+                        data
+                    );
+                }
+
+                // MNC Standard: Persist in-app notification in crm_notifications table for recipient
+                if (crmNotificationService != null) {
+                    String targetUserId = (recipientLoginStr != null && !recipientLoginStr.isBlank())
+                        ? recipientLoginStr.trim().toLowerCase()
+                        : recipientIdStr;
+                    CrmNotification notif = new CrmNotification();
+                    notif.setUserId(targetUserId);
+                    notif.setTitle(title);
+                    notif.setMessage(body);
+                    notif.setType("CHAT");
+                    notif.setReferenceId(dto.getId() != null ? dto.getId().toString() : null);
+                    notif.setReferenceType("CHAT_MESSAGE");
+                    notif.setIsRead(Boolean.FALSE);
+                    notif.setCreatedAt(Instant.now());
+                    crmNotificationService.createNotification(notif).subscribe(
+                        saved -> LOG.info("[ChatNotification] Persisted in-app chat notification for user: {}", targetUserId),
+                        err -> LOG.error("[ChatNotification] Failed to persist in-app chat notification: {}", err.getMessage())
+                    );
+                }
             } else {
                 // Group / Team Chat Push Notification to all colleagues except author
                 data.put("chatType", "group");
@@ -303,13 +341,37 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
                 String title = senderName + " (Team Chat)";
                 String body = contentPreview;
-                pushNotificationService.sendGroupPushNotificationExcept(
-                    dto.getUserId() != null ? dto.getUserId().toString() : "",
-                    dto.getUserLogin(),
-                    title,
-                    body,
-                    data
-                );
+                if (pushNotificationService != null) {
+                    pushNotificationService.sendGroupPushNotificationExcept(
+                        dto.getUserId() != null ? dto.getUserId().toString() : "",
+                        dto.getUserLogin(),
+                        title,
+                        body,
+                        data
+                    );
+                }
+
+                // MNC Standard: Persist in-app notification for all team members except author
+                if (crmNotificationService != null && userRepository != null) {
+                    userRepository.findAll()
+                        .filter(u -> !Objects.equals(u.getId(), dto.getUserId()) && (dto.getUserLogin() == null || !u.getLogin().equalsIgnoreCase(dto.getUserLogin())))
+                        .flatMap(colleague -> {
+                            CrmNotification groupNotif = new CrmNotification();
+                            groupNotif.setUserId(colleague.getLogin().toLowerCase());
+                            groupNotif.setTitle(title);
+                            groupNotif.setMessage(body);
+                            groupNotif.setType("CHAT");
+                            groupNotif.setReferenceId(dto.getId() != null ? dto.getId().toString() : null);
+                            groupNotif.setReferenceType("CHAT_MESSAGE");
+                            groupNotif.setIsRead(Boolean.FALSE);
+                            groupNotif.setCreatedAt(Instant.now());
+                            return crmNotificationService.createNotification(groupNotif);
+                        })
+                        .subscribe(
+                            saved -> LOG.debug("[ChatNotification] Persisted group in-app chat notification for user: {}", saved.getUserId()),
+                            err -> LOG.error("[ChatNotification] Failed to persist group in-app chat notification: {}", err.getMessage())
+                        );
+                }
             }
         } catch (Exception e) {
             LOG.error("[ChatPush] Error dispatching push notification for message: {}", e.getMessage());

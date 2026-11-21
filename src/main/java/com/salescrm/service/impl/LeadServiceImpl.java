@@ -1,11 +1,15 @@
 package com.salescrm.service.impl;
 
+import com.salescrm.domain.CrmNotification;
 import com.salescrm.domain.Lead;
 import com.salescrm.repository.LeadRepository;
+import com.salescrm.repository.UserRepository;
+import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadService;
 import com.salescrm.service.dto.LeadDTO;
 import com.salescrm.service.mapper.LeadMapper;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -35,8 +39,12 @@ public class LeadServiceImpl implements LeadService {
 
     private final FirebasePushNotificationService pushNotificationService;
 
+    private final CrmNotificationService crmNotificationService;
+
+    private final UserRepository userRepository;
+
     public LeadServiceImpl(LeadRepository leadRepository, LeadMapper leadMapper, DatabaseClient databaseClient) {
-        this(leadRepository, leadMapper, databaseClient, null);
+        this(leadRepository, leadMapper, databaseClient, null, null, null);
     }
 
     @Autowired
@@ -44,12 +52,16 @@ public class LeadServiceImpl implements LeadService {
         LeadRepository leadRepository,
         LeadMapper leadMapper,
         DatabaseClient databaseClient,
-        @Autowired(required = false) FirebasePushNotificationService pushNotificationService
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService,
+        @Autowired(required = false) CrmNotificationService crmNotificationService,
+        @Autowired(required = false) UserRepository userRepository
     ) {
         this.leadRepository = leadRepository;
         this.leadMapper = leadMapper;
         this.databaseClient = databaseClient;
         this.pushNotificationService = pushNotificationService;
+        this.crmNotificationService = crmNotificationService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -81,7 +93,7 @@ public class LeadServiceImpl implements LeadService {
     }
 
     private void dispatchNewLeadPushNotification(LeadDTO savedLead) {
-        if (pushNotificationService == null || savedLead == null) {
+        if (savedLead == null) {
             return;
         }
         try {
@@ -97,7 +109,30 @@ public class LeadServiceImpl implements LeadService {
             data.put("candidateName", name);
             data.put("route", "/leads");
 
-            pushNotificationService.sendPushNotificationToAll(title, body, data);
+            if (pushNotificationService != null) {
+                pushNotificationService.sendPushNotificationToAll(title, body, data);
+            }
+
+            // MNC Standard: Persist in-app notification in crm_notifications table for all staff
+            if (crmNotificationService != null && userRepository != null) {
+                userRepository.findAll()
+                    .flatMap(user -> {
+                        CrmNotification notif = new CrmNotification();
+                        notif.setUserId(user.getLogin().toLowerCase());
+                        notif.setTitle(title);
+                        notif.setMessage(body);
+                        notif.setType("NEW_LEAD");
+                        notif.setReferenceId(savedLead.getId() != null ? savedLead.getId().toString() : null);
+                        notif.setReferenceType("LEAD");
+                        notif.setIsRead(Boolean.FALSE);
+                        notif.setCreatedAt(Instant.now());
+                        return crmNotificationService.createNotification(notif);
+                    })
+                    .subscribe(
+                        saved -> LOG.debug("[LeadNotification] Persisted in-app lead notification for user: {}", saved.getUserId()),
+                        err -> LOG.error("[LeadNotification] Failed to persist in-app lead notification: {}", err.getMessage())
+                    );
+            }
         } catch (Exception e) {
             LOG.error("Failed to dispatch push notification for lead: {}", e.getMessage());
         }

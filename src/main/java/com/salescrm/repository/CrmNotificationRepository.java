@@ -19,12 +19,29 @@ public interface CrmNotificationRepository extends ReactiveCrudRepository<CrmNot
 
     Mono<Long> countByUserIdAndIsReadFalse(String userId);
 
+    @Query("SELECT * FROM crm_notifications WHERE LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId) ORDER BY created_at DESC")
+    Flux<CrmNotification> findAllByUserIdOrAltUserIdOrderByCreatedAtDesc(String userId, String altUserId);
+
+    @Query("SELECT * FROM crm_notifications WHERE (LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId)) AND is_read = false ORDER BY created_at DESC")
+    Flux<CrmNotification> findAllByUserIdOrAltUserIdAndIsReadFalseOrderByCreatedAtDesc(String userId, String altUserId);
+
+    @Query("SELECT COUNT(*) FROM crm_notifications WHERE (LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId)) AND is_read = false")
+    Mono<Long> countByUserIdOrAltUserIdAndIsReadFalse(String userId, String altUserId);
+
     @Query("SELECT COUNT(*) FROM crm_notifications WHERE user_id = :userId AND reference_id = :referenceId AND type = :type")
     Mono<Long> countByUserIdAndReferenceIdAndType(String userId, String referenceId, String type);
 
     @Modifying
+    @Query("UPDATE crm_notifications SET is_read = true, read_at = :readAt WHERE (LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId)) AND is_read = false")
+    Mono<Long> markAllAsReadForUserOrAltUserId(String userId, String altUserId, Instant readAt);
+
+    @Modifying
     @Query("UPDATE crm_notifications SET is_read = true, read_at = :readAt WHERE user_id = :userId AND is_read = false")
     Mono<Long> markAllAsRead(String userId, Instant readAt);
+
+    @Modifying
+    @Query("DELETE FROM crm_notifications WHERE LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId)")
+    Mono<Long> deleteAllByUserIdOrAltUserId(String userId, String altUserId);
 
     @Modifying
     @Query("DELETE FROM crm_notifications WHERE user_id = :userId")
