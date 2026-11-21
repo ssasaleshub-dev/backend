@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 /**
  * Service Implementation for managing {@link CrmNotification}.
@@ -25,6 +26,7 @@ public class CrmNotificationServiceImpl implements CrmNotificationService {
 
     private final CrmNotificationRepository crmNotificationRepository;
     private final UserRepository userRepository;
+    private final Sinks.Many<CrmNotification> notificationSink = Sinks.many().multicast().onBackpressureBuffer();
 
     public CrmNotificationServiceImpl(CrmNotificationRepository crmNotificationRepository, UserRepository userRepository) {
         this.crmNotificationRepository = crmNotificationRepository;
@@ -118,6 +120,26 @@ public class CrmNotificationServiceImpl implements CrmNotificationService {
         if (notification.getIsRead() == null) {
             notification.setIsRead(false);
         }
-        return crmNotificationRepository.save(notification).map(CrmNotification::setIsPersisted);
+        return crmNotificationRepository.save(notification)
+            .map(CrmNotification::setIsPersisted)
+            .doOnSuccess(saved -> {
+                if (saved != null) {
+                    broadcastNotification(saved);
+                }
+            });
+    }
+
+    @Override
+    public Flux<CrmNotification> getLiveNotificationStream() {
+        return notificationSink.asFlux();
+    }
+
+    @Override
+    public void broadcastNotification(CrmNotification notification) {
+        if (notification != null) {
+            LOG.info("[LiveNotification] Broadcasting real-time notification id={} to user={}: '{}'",
+                notification.getId(), notification.getUserId(), notification.getTitle());
+            notificationSink.tryEmitNext(notification);
+        }
     }
 }

@@ -18,10 +18,17 @@ import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAd
 public class WebSocketConfiguration {
 
     @Bean
-    public HandlerMapping webSocketHandlerMapping(ChatWebSocketHandler chatWebSocketHandler) {
+    public HandlerMapping webSocketHandlerMapping(
+        ChatWebSocketHandler chatWebSocketHandler,
+        NotificationWebSocketHandler notificationWebSocketHandler
+    ) {
         Map<String, WebSocketHandler> map = new HashMap<>();
         map.put("/api/ws/chat", chatWebSocketHandler);
         map.put("/ws/chat", chatWebSocketHandler);
+        map.put("/api/ws/notifications", notificationWebSocketHandler);
+        map.put("/ws/notifications", notificationWebSocketHandler);
+        map.put("/api/ws/alerts", notificationWebSocketHandler);
+        map.put("/ws/alerts", notificationWebSocketHandler);
 
         SimpleUrlHandlerMapping handlerMapping = new SimpleUrlHandlerMapping();
         handlerMapping.setOrder(Ordered.HIGHEST_PRECEDENCE);

@@ -20,4 +20,8 @@ public interface CrmNotificationService {
     Mono<Long> clearAllNotifications(String userId);
 
     Mono<CrmNotification> createNotification(CrmNotification notification);
+
+    Flux<CrmNotification> getLiveNotificationStream();
+
+    void broadcastNotification(CrmNotification notification);
 }
