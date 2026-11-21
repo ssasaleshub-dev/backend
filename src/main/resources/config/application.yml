@@ -201,10 +201,10 @@ jhipster:
 
 application:
   facebook:
-    app-id: "${FB_APP_ID:}"
-    app-secret: "${FB_APP_SECRET:}"
+    app-id: "${FB_APP_ID:1181141688194053}"
+    app-secret: "${FB_APP_SECRET:b3fa8078065a6504d45a17d67f29e803}" 
     verify-token: "${FB_VERIFY_TOKEN:salescrm_leadgen_secret_tokenbasdiug37846y}"
-    page-access-token: "${FB_PAGE_ACCESS_TOKEN:}"
+    page-access-token: "${FB_PAGE_ACCESS_TOKEN:EAAQyPfrBFAUBTFWQ6DsCZA1i9k9uRooRMs73ytn7ATSCv9TLcGYnKUIXHsoyTZBYZCepgwVaSgz4z0ezTN5AAh458mG53FFsvYCtqrIqbvAcUB5deKmFLZAPNeueig7oz0ZAeDdlx0rjCnD6RT0fluaZAAs0ajZAsZCdOgZAMX4MrW1wTMo0MEbudyI5IxOGWgA8PFu32mxbzFOmjpBn63dBtf9FMHNNFpMWd1dv8LxVzcgZDZD}"
     graph-api-version: "${FB_GRAPH_API_VERSION:v21.0}"
     graph-api-base-url: "${FB_GRAPH_API_BASE_URL:https://graph.facebook.com}"
 
