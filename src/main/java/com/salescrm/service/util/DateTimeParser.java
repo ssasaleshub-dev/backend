@@ -19,6 +19,9 @@ public class DateTimeParser {
     private static final DateTimeFormatter[] FORMATTERS = new DateTimeFormatter[] {
         DateTimeFormatter.ISO_OFFSET_DATE_TIME,
         DateTimeFormatter.ISO_INSTANT,
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ"),
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX"),
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX"),
         DateTimeFormatter.ISO_LOCAL_DATE_TIME,
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"),
