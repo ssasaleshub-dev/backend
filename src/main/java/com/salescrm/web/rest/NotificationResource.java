@@ -60,14 +60,15 @@ public class NotificationResource {
 
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty(requestedUserId != null && !requestedUserId.isBlank() ? requestedUserId : "admin")
-            .flatMap(login -> {
+            .flatMap(rawLogin -> {
+                String login = rawLogin.trim().toLowerCase();
                 if (firebasePushNotificationService != null && token != null) {
                     firebasePushNotificationService.registerToken(login, token, deviceType);
                     if (requestedUserId != null) {
-                        firebasePushNotificationService.registerToken(requestedUserId, token, deviceType);
+                        firebasePushNotificationService.registerToken(requestedUserId.trim().toLowerCase(), token, deviceType);
                     }
                     if (numericId != null) {
-                        firebasePushNotificationService.registerToken(numericId, token, deviceType);
+                        firebasePushNotificationService.registerToken(numericId.trim(), token, deviceType);
                     }
                 }
                 return userRepository.findOneByLogin(login)
@@ -110,9 +111,9 @@ public class NotificationResource {
 
     private Mono<String> resolveUserId(String requestedUserId) {
         if (requestedUserId != null && !requestedUserId.isBlank()) {
-            return Mono.just(requestedUserId);
+            return Mono.just(requestedUserId.trim().toLowerCase());
         }
-        return SecurityUtils.getCurrentUserLogin().defaultIfEmpty("admin");
+        return SecurityUtils.getCurrentUserLogin().map(String::toLowerCase).defaultIfEmpty("admin");
     }
 
     /**
