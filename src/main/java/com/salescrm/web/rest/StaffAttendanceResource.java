@@ -36,9 +36,19 @@ public class StaffAttendanceResource {
     private static final ZoneId IST_ZONE = ZoneId.of("Asia/Kolkata");
 
     private final StaffAttendanceService staffAttendanceService;
+    private final com.salescrm.service.StaffBiometricService staffBiometricService;
 
     public StaffAttendanceResource(StaffAttendanceService staffAttendanceService) {
+        this(staffAttendanceService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public StaffAttendanceResource(
+        StaffAttendanceService staffAttendanceService,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) com.salescrm.service.StaffBiometricService staffBiometricService
+    ) {
         this.staffAttendanceService = staffAttendanceService;
+        this.staffBiometricService = staffBiometricService;
     }
 
     /**
@@ -81,8 +91,26 @@ public class StaffAttendanceResource {
                             return Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required to punch attendance."));
                         }
 
+                        String deviceId = payload.get("deviceId");
+                        String biometricKeyId = payload.get("biometricKeyId");
+
+                        Mono<Boolean> biometricValidation = Mono.just(true);
+                        if (staffBiometricService != null && !isAdmin) {
+                            final String finalTarget = targetUser;
+                            biometricValidation = staffBiometricService.getCredentialsByUser(finalTarget)
+                                .filter(cred -> Boolean.TRUE.equals(cred.getIsLocked()))
+                                .hasElements()
+                                .flatMap(hasLockedCredential -> {
+                                    if (hasLockedCredential) {
+                                        return staffBiometricService.verifyCheckInBiometric(finalTarget, deviceId, biometricKeyId);
+                                    }
+                                    return Mono.just(true);
+                                });
+                        }
+
                         LOG.info("Authorized check-in request for staff: {} (by: {}, isAdmin: {})", targetUser, authenticatedUser, isAdmin);
-                        return staffAttendanceService.checkIn(targetUser, userName, userRole, workMode, note, ipAddress, deviceInfo);
+                        return biometricValidation
+                            .then(staffAttendanceService.checkIn(targetUser, userName, userRole, workMode, note, ipAddress, deviceInfo));
                     })
             )
             .map(result -> ResponseEntity.status(HttpStatus.CREATED).body(result));

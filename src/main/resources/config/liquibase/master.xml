@@ -37,4 +37,5 @@
     <include file="config/liquibase/changelog/20261102231500_added_lead_activity.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261103000000_added_staff_attendance.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261121220000_added_user_device_tokens.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121230000_added_staff_biometric_credentials.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>
