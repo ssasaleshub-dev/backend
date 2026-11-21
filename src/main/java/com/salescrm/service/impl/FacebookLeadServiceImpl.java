@@ -497,7 +497,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 ? row.getFormName()
                 : "Meta Lead Ad";
 
-            String title = "🎯 New Lead Received: " + name;
+            String title = "New Lead Received: " + name;
             String body = formName + (!phone.isBlank() ? " • " + phone : "");
 
             Map<String, String> data = new HashMap<>();

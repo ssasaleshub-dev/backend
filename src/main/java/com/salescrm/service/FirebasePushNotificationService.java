@@ -294,47 +294,65 @@ public class FirebasePushNotificationService {
     private void sendDirectPush(String token, String userId, String title, String body, Map<String, String> data) {
         if (firebaseMessaging == null || token == null || token.isBlank()) return;
         try {
+            String cleanTitle = cleanText(title);
+            String cleanBody = cleanText(body);
+
+            String collapseTag = null;
+            if (data != null) {
+                if (data.containsKey("leadId") && !data.get("leadId").isBlank()) {
+                    collapseTag = "lead_" + data.get("leadId").trim();
+                } else if (data.containsKey("messageId") && !data.get("messageId").isBlank()) {
+                    collapseTag = "chat_" + data.get("messageId").trim();
+                }
+            }
+
             Notification notification = Notification.builder()
-                .setTitle(title)
-                .setBody(body)
+                .setTitle(cleanTitle)
+                .setBody(cleanBody)
                 .build();
 
-            AndroidConfig androidConfig = AndroidConfig.builder()
+            AndroidNotification.Builder androidNotificationBuilder = AndroidNotification.builder()
+                .setChannelId("fcm_default_channel")
+                .setSound("default")
+                .setDefaultSound(true)
+                .setDefaultVibrateTimings(true)
+                .setPriority(AndroidNotification.Priority.HIGH)
+                .setVisibility(AndroidNotification.Visibility.PUBLIC);
+
+            if (collapseTag != null) {
+                androidNotificationBuilder.setTag(collapseTag);
+            }
+
+            AndroidConfig.Builder androidConfigBuilder = AndroidConfig.builder()
                 .setPriority(AndroidConfig.Priority.HIGH)
-                .setNotification(
-                    AndroidNotification.builder()
-                        .setChannelId("fcm_default_channel")
-                        .setIcon("ic_notification")
-                        .setColor("#029858")
-                        .setSound("default")
-                        .setDefaultSound(true)
-                        .setDefaultVibrateTimings(true)
-                        .setPriority(AndroidNotification.Priority.HIGH)
-                        .setVisibility(AndroidNotification.Visibility.PUBLIC)
-                        .build()
-                )
-                .build();
+                .setNotification(androidNotificationBuilder.build());
+
+            if (collapseTag != null) {
+                androidConfigBuilder.setCollapseKey(collapseTag);
+            }
+
+            WebpushNotification.Builder webpushBuilder = WebpushNotification.builder()
+                .setTitle(cleanTitle)
+                .setBody(cleanBody);
+
+            if (collapseTag != null) {
+                webpushBuilder.setTag(collapseTag);
+            }
 
             WebpushConfig webpushConfig = WebpushConfig.builder()
-                .setNotification(
-                    WebpushNotification.builder()
-                        .setTitle(title)
-                        .setBody(body)
-                        .setIcon("/favicon.png")
-                        .build()
-                )
+                .setNotification(webpushBuilder.build())
                 .putData("route", data != null && data.containsKey("route") ? data.get("route") : "")
                 .build();
 
             Message.Builder messageBuilder = Message.builder()
                 .setToken(token)
                 .setNotification(notification)
-                .setAndroidConfig(androidConfig)
+                .setAndroidConfig(androidConfigBuilder.build())
                 .setWebpushConfig(webpushConfig);
 
             Map<String, String> payloadData = data != null ? new HashMap<>(data) : new HashMap<>();
-            payloadData.putIfAbsent("title", title);
-            payloadData.putIfAbsent("body", body);
+            payloadData.putIfAbsent("title", cleanTitle);
+            payloadData.putIfAbsent("body", cleanBody);
             messageBuilder.putAllData(payloadData);
 
             String response = firebaseMessaging.send(messageBuilder.build());
@@ -347,6 +365,12 @@ public class FirebasePushNotificationService {
         } catch (Exception e) {
             LOG.error("Failed to send direct FCM push: {}", e.getMessage());
         }
+    }
+
+    private String cleanText(String text) {
+        if (text == null) return "";
+        // Strip emojis and symbols to ensure clean professional notifications
+        return text.replaceAll("[\\p{So}\\p{Cn}\\uD83C-\\uDBFF\\uDC00-\\uDFFF]", "").trim();
     }
 
     private String maskToken(String token) {

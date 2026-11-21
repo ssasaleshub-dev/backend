@@ -92,7 +92,7 @@ public class NotificationResource {
     @PostMapping("/test-push")
     public Mono<ResponseEntity<Map<String, Object>>> sendTestPush(@RequestBody(required = false) Map<String, String> payload) {
         String targetUser = payload != null && payload.get("userId") != null ? payload.get("userId") : "admin";
-        String title = payload != null && payload.get("title") != null ? payload.get("title") : "🔔 Test Push Notification";
+        String title = payload != null && payload.get("title") != null ? payload.get("title") : "Test Push Notification";
         String body = payload != null && payload.get("body") != null ? payload.get("body") : "Testing push notification delivery";
 
         if (firebasePushNotificationService != null) {

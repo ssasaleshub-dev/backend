@@ -253,13 +253,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             String contentPreview = dto.getContent();
             if (contentPreview == null || contentPreview.isBlank()) {
                 if ("IMAGE".equalsIgnoreCase(dto.getMediaType()) || (dto.getMediaUrl() != null && dto.getMediaUrl().matches(".*\\.(jpg|jpeg|png|webp|gif).*"))) {
-                    contentPreview = "📷 Photo";
+                    contentPreview = "Photo";
                 } else if ("VIDEO".equalsIgnoreCase(dto.getMediaType())) {
-                    contentPreview = "🎥 Video";
+                    contentPreview = "Video";
                 } else if (dto.getFileName() != null) {
-                    contentPreview = "📄 " + dto.getFileName();
+                    contentPreview = "File: " + dto.getFileName();
                 } else if (dto.getMediaUrl() != null) {
-                    contentPreview = "📎 Attachment";
+                    contentPreview = "Attachment";
                 } else {
                     contentPreview = "Sent a message";
                 }

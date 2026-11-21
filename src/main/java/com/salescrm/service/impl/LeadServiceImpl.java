@@ -88,7 +88,7 @@ public class LeadServiceImpl implements LeadService {
             String name = (savedLead.getCustomer() != null && savedLead.getCustomer().getFullName() != null)
                 ? savedLead.getCustomer().getFullName()
                 : "New Lead";
-            String title = "🎯 New Lead Received: " + name;
+            String title = "New Lead Received: " + name;
             String body = "New lead added to CRM";
 
             Map<String, String> data = new HashMap<>();
