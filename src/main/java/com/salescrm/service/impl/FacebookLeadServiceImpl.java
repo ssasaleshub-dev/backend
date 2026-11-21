@@ -5,6 +5,7 @@ import com.salescrm.domain.enumeration.LeadStatus;
 import com.salescrm.domain.enumeration.PlatformType;
 import com.salescrm.repository.*;
 import com.salescrm.service.FacebookLeadService;
+import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadActivityService;
 import com.salescrm.service.client.FacebookGraphApiClient;
 import com.salescrm.service.dto.ExcelLeadRowDTO;
@@ -14,6 +15,8 @@ import com.salescrm.service.mapper.FacebookLeadMapper;
 import com.salescrm.service.util.DateTimeParser;
 import com.salescrm.service.util.PhoneNormalizer;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +47,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     private final PhoneNormalizer phoneNormalizer;
     private final DateTimeParser dateTimeParser;
     private final LeadActivityService leadActivityService;
+    private final FirebasePushNotificationService pushNotificationService;
 
     public FacebookLeadServiceImpl(
         FacebookGraphApiClient graphApiClient,
@@ -57,7 +61,40 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         LeadPreferenceRepository leadPreferenceRepository,
         PhoneNormalizer phoneNormalizer,
         DateTimeParser dateTimeParser,
-        @Autowired(required = false) LeadActivityService leadActivityService
+        LeadActivityService leadActivityService
+    ) {
+        this(
+            graphApiClient,
+            leadMapper,
+            leadRepository,
+            customerRepository,
+            campaignRepository,
+            adSetRepository,
+            adRepository,
+            leadFormRepository,
+            leadPreferenceRepository,
+            phoneNormalizer,
+            dateTimeParser,
+            leadActivityService,
+            null
+        );
+    }
+
+    @Autowired
+    public FacebookLeadServiceImpl(
+        FacebookGraphApiClient graphApiClient,
+        FacebookLeadMapper leadMapper,
+        LeadRepository leadRepository,
+        CustomerRepository customerRepository,
+        CampaignRepository campaignRepository,
+        AdSetRepository adSetRepository,
+        AdRepository adRepository,
+        LeadFormRepository leadFormRepository,
+        LeadPreferenceRepository leadPreferenceRepository,
+        PhoneNormalizer phoneNormalizer,
+        DateTimeParser dateTimeParser,
+        @Autowired(required = false) LeadActivityService leadActivityService,
+        @Autowired(required = false) FirebasePushNotificationService pushNotificationService
     ) {
         this.graphApiClient = graphApiClient;
         this.leadMapper = leadMapper;
@@ -71,6 +108,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         this.phoneNormalizer = phoneNormalizer;
         this.dateTimeParser = dateTimeParser;
         this.leadActivityService = leadActivityService;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Override
@@ -174,6 +212,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 LOG.info("Successfully persisted Facebook lead: ID={}, external_id={}, customer_id={}",
                     savedLead.getId(), savedLead.getExternalId(), savedLead.getCustomerId());
                 logLeadActivity(savedLead, row, pageId);
+                dispatchNewLeadPushNotification(savedLead, row);
             });
     }
 
@@ -441,5 +480,37 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             return PlatformType.WHATSAPP;
         }
         return PlatformType.FB;
+    }
+
+    private void dispatchNewLeadPushNotification(Lead savedLead, ExcelLeadRowDTO row) {
+        if (pushNotificationService == null || savedLead == null) {
+            return;
+        }
+        try {
+            String name = (row != null && row.getFullName() != null && !row.getFullName().isBlank())
+                ? row.getFullName()
+                : "New Candidate";
+            String phone = (row != null && row.getPhoneNumber() != null && !row.getPhoneNumber().isBlank())
+                ? row.getPhoneNumber()
+                : "";
+            String formName = (row != null && row.getFormName() != null && !row.getFormName().isBlank())
+                ? row.getFormName()
+                : "Meta Lead Ad";
+
+            String title = "🎯 New Lead Received: " + name;
+            String body = formName + (!phone.isBlank() ? " • " + phone : "");
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "NEW_LEAD");
+            data.put("leadId", savedLead.getId() != null ? savedLead.getId().toString() : "");
+            data.put("externalId", savedLead.getExternalId() != null ? savedLead.getExternalId() : "");
+            data.put("candidateName", name);
+            data.put("phoneNumber", phone);
+            data.put("route", "/leads");
+
+            pushNotificationService.sendPushNotificationToAll(title, body, data);
+        } catch (Exception e) {
+            LOG.error("Failed to dispatch push notification for new lead {}: {}", savedLead.getId(), e.getMessage());
+        }
     }
 }

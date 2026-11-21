@@ -132,12 +132,16 @@ public class FirebasePushNotificationService {
 
     public void sendPushNotificationToAll(String title, String body, Map<String, String> data) {
         Set<String> uniqueTokens = new HashSet<>();
-        for (Map.Entry<String, Set<String>> entry : userTokens.entrySet()) {
-            if ("default".equalsIgnoreCase(entry.getKey())) continue;
-            if (entry.getValue() != null) {
-                uniqueTokens.addAll(entry.getValue());
+        for (Set<String> tokens : userTokens.values()) {
+            if (tokens != null) {
+                for (String t : tokens) {
+                    if (t != null && !t.isBlank()) {
+                        uniqueTokens.add(t.trim());
+                    }
+                }
             }
         }
+        LOG.info("Broadcasting push notification to {} registered device(s): '{}'", uniqueTokens.size(), title);
         for (String token : uniqueTokens) {
             sendDirectPush(token, "all_users", title, body, data);
         }

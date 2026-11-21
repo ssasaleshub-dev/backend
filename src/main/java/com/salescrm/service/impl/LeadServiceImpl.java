@@ -2,9 +2,12 @@ package com.salescrm.service.impl;
 
 import com.salescrm.domain.Lead;
 import com.salescrm.repository.LeadRepository;
+import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadService;
 import com.salescrm.service.dto.LeadDTO;
 import com.salescrm.service.mapper.LeadMapper;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -29,10 +32,22 @@ public class LeadServiceImpl implements LeadService {
 
     private final DatabaseClient databaseClient;
 
+    private final FirebasePushNotificationService pushNotificationService;
+
     public LeadServiceImpl(LeadRepository leadRepository, LeadMapper leadMapper, DatabaseClient databaseClient) {
+        this(leadRepository, leadMapper, databaseClient, null);
+    }
+
+    public LeadServiceImpl(
+        LeadRepository leadRepository,
+        LeadMapper leadMapper,
+        DatabaseClient databaseClient,
+        FirebasePushNotificationService pushNotificationService
+    ) {
         this.leadRepository = leadRepository;
         this.leadMapper = leadMapper;
         this.databaseClient = databaseClient;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Override
@@ -58,13 +73,40 @@ public class LeadServiceImpl implements LeadService {
                 .switchIfEmpty(Mono.defer(() -> leadRepository.save(leadMapper.toEntity(leadDTO))))
                 .map(leadMapper::toDto);
         }
-        return leadRepository.save(leadMapper.toEntity(leadDTO)).map(leadMapper::toDto);
+        return leadRepository.save(leadMapper.toEntity(leadDTO))
+            .map(leadMapper::toDto)
+            .doOnSuccess(this::dispatchNewLeadPushNotification);
+    }
+
+    private void dispatchNewLeadPushNotification(LeadDTO savedLead) {
+        if (pushNotificationService == null || savedLead == null) {
+            return;
+        }
+        try {
+            String name = (savedLead.getCustomer() != null && savedLead.getCustomer().getFullName() != null)
+                ? savedLead.getCustomer().getFullName()
+                : "New Lead";
+            String title = "🎯 New Lead Received: " + name;
+            String body = "New lead added to CRM";
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "NEW_LEAD");
+            data.put("leadId", savedLead.getId() != null ? savedLead.getId().toString() : "");
+            data.put("candidateName", name);
+            data.put("route", "/leads");
+
+            pushNotificationService.sendPushNotificationToAll(title, body, data);
+        } catch (Exception e) {
+            LOG.error("Failed to dispatch push notification for lead: {}", e.getMessage());
+        }
     }
 
     @Override
     public Mono<LeadDTO> update(LeadDTO leadDTO) {
         LOG.debug("Request to update Lead : {}", leadDTO);
-        return leadRepository.save(leadMapper.toEntity(leadDTO)).map(leadMapper::toDto);
+        return leadRepository.save(leadMapper.toEntity(leadDTO))
+            .map(leadMapper::toDto)
+            .doOnSuccess(this::dispatchNewLeadPushNotification);
     }
 
     @Override
