@@ -56,23 +56,24 @@ public class NotificationResource {
         String token = payload != null ? payload.get("token") : null;
         String requestedUserId = payload != null ? payload.get("userId") : null;
         String numericId = payload != null ? payload.get("numericId") : null;
+        String deviceType = payload != null ? (payload.get("deviceType") != null ? payload.get("deviceType") : payload.get("platform")) : null;
 
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty(requestedUserId != null && !requestedUserId.isBlank() ? requestedUserId : "admin")
             .flatMap(login -> {
                 if (firebasePushNotificationService != null && token != null) {
-                    firebasePushNotificationService.registerToken(login, token);
+                    firebasePushNotificationService.registerToken(login, token, deviceType);
                     if (requestedUserId != null) {
-                        firebasePushNotificationService.registerToken(requestedUserId, token);
+                        firebasePushNotificationService.registerToken(requestedUserId, token, deviceType);
                     }
                     if (numericId != null) {
-                        firebasePushNotificationService.registerToken(numericId, token);
+                        firebasePushNotificationService.registerToken(numericId, token, deviceType);
                     }
                 }
                 return userRepository.findOneByLogin(login)
                     .doOnNext(user -> {
                         if (firebasePushNotificationService != null && token != null && user.getId() != null) {
-                            firebasePushNotificationService.registerToken(user.getId().toString(), token);
+                            firebasePushNotificationService.registerToken(user.getId().toString(), token, deviceType);
                         }
                     })
                     .thenReturn(login);
@@ -83,6 +84,28 @@ public class NotificationResource {
                 response.put("userId", userId);
                 return ResponseEntity.ok(response);
             });
+    }
+
+    /**
+     * {@code POST  /api/notifications/test-push} : Send a manual test push notification to a user.
+     */
+    @PostMapping("/test-push")
+    public Mono<ResponseEntity<Map<String, Object>>> sendTestPush(@RequestBody(required = false) Map<String, String> payload) {
+        String targetUser = payload != null && payload.get("userId") != null ? payload.get("userId") : "admin";
+        String title = payload != null && payload.get("title") != null ? payload.get("title") : "🔔 Test Push Notification";
+        String body = payload != null && payload.get("body") != null ? payload.get("body") : "Testing push notification delivery";
+
+        if (firebasePushNotificationService != null) {
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "TEST");
+            data.put("route", "/chat");
+            firebasePushNotificationService.sendPushNotification(targetUser, title, body, data);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status", "dispatched");
+        resp.put("targetUser", targetUser);
+        return Mono.just(ResponseEntity.ok(resp));
     }
 
     private Mono<String> resolveUserId(String requestedUserId) {

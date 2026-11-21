@@ -56,26 +56,54 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         if (chatMessageDTO.getCreatedAt() == null) {
             chatMessageDTO.setCreatedAt(Instant.now());
         }
-        if (chatMessageDTO.getRecipientId() != null) {
-            if (chatMessageDTO.getChannel() == null || chatMessageDTO.getChannel().isBlank() || "general".equalsIgnoreCase(chatMessageDTO.getChannel())) {
-                chatMessageDTO.setChannel("p2p");
-            }
-        } else if (chatMessageDTO.getChannel() == null || chatMessageDTO.getChannel().isBlank()) {
-            chatMessageDTO.setChannel("general");
-        }
 
-        return resolveUserId(chatMessageDTO.getUserId())
-            .flatMap(resolvedUserId -> {
-                chatMessageDTO.setUserId(resolvedUserId);
-                ChatMessage chatMessage = chatMessageMapper.toEntity(chatMessageDTO);
-                return chatMessageRepository.save(chatMessage);
-            })
+        return resolveRecipient(chatMessageDTO)
+            .flatMap(dto -> resolveUserId(dto.getUserId())
+                .flatMap(resolvedUserId -> {
+                    dto.setUserId(resolvedUserId);
+                    ChatMessage chatMessage = chatMessageMapper.toEntity(dto);
+                    return chatMessageRepository.save(chatMessage);
+                })
+            )
             .map(chatMessageMapper::toDto)
             .flatMap(this::enrichDTO)
             .doOnNext(savedDto -> {
                 broadcastMessage(savedDto);
                 sendChatPushNotification(savedDto);
             });
+    }
+
+    private Mono<ChatMessageDTO> resolveRecipient(ChatMessageDTO dto) {
+        if (dto.getRecipientId() != null) {
+            if (dto.getChannel() == null || dto.getChannel().isBlank() || "general".equalsIgnoreCase(dto.getChannel())) {
+                dto.setChannel("p2p");
+            }
+            return Mono.just(dto);
+        }
+
+        String potentialLogin = null;
+        if (dto.getRecipientLogin() != null && !dto.getRecipientLogin().isBlank()) {
+            potentialLogin = dto.getRecipientLogin().trim().toLowerCase();
+        } else if (dto.getChannel() != null && !dto.getChannel().isBlank()
+            && !"general".equalsIgnoreCase(dto.getChannel()) && !"p2p".equalsIgnoreCase(dto.getChannel())) {
+            potentialLogin = dto.getChannel().trim().toLowerCase();
+        }
+
+        if (potentialLogin != null) {
+            return userRepository.findOneByLogin(potentialLogin)
+                .map(user -> {
+                    dto.setRecipientId(user.getId());
+                    dto.setRecipientLogin(user.getLogin());
+                    dto.setChannel("p2p");
+                    return dto;
+                })
+                .defaultIfEmpty(dto);
+        }
+
+        if (dto.getChannel() == null || dto.getChannel().isBlank()) {
+            dto.setChannel("general");
+        }
+        return Mono.just(dto);
     }
 
     @Override
@@ -245,17 +273,25 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             data.put("senderId", dto.getUserId() != null ? dto.getUserId().toString() : "");
             data.put("senderName", senderName);
 
-            if (dto.getRecipientId() != null) {
+            if (dto.getRecipientId() != null || (dto.getRecipientLogin() != null && !dto.getRecipientLogin().isBlank())) {
                 // Direct P2P Chat Push Notification
+                String recipientIdStr = dto.getRecipientId() != null ? dto.getRecipientId().toString() : "";
+                String recipientLoginStr = dto.getRecipientLogin();
+
                 data.put("chatType", "p2p");
                 data.put("channel", "p2p");
-                data.put("recipientId", dto.getRecipientId().toString());
+                if (!recipientIdStr.isBlank()) {
+                    data.put("recipientId", recipientIdStr);
+                }
+                if (recipientLoginStr != null) {
+                    data.put("recipientLogin", recipientLoginStr);
+                }
 
                 String title = senderName;
                 String body = contentPreview;
                 pushNotificationService.sendChatPushNotification(
-                    dto.getRecipientId().toString(),
-                    dto.getRecipientLogin(),
+                    recipientIdStr,
+                    recipientLoginStr,
                     title,
                     body,
                     data

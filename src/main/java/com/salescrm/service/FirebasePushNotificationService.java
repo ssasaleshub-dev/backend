@@ -1,11 +1,14 @@
 package com.salescrm.service;
 
 import com.google.firebase.messaging.*;
+import com.salescrm.domain.UserDeviceToken;
+import com.salescrm.repository.UserDeviceTokenRepository;
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 @Service
 public class FirebasePushNotificationService {
@@ -27,11 +31,33 @@ public class FirebasePushNotificationService {
     @Autowired(required = false)
     private FirebaseMessaging firebaseMessaging;
 
+    @Autowired(required = false)
+    private UserDeviceTokenRepository userDeviceTokenRepository;
+
     // Resilient device token cache (userId -> Set of fcmTokens)
     private final Map<String, Set<String>> userTokens = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
+        // 1. Load from PostgreSQL table if available
+        if (userDeviceTokenRepository != null) {
+            try {
+                userDeviceTokenRepository.findAll()
+                    .doOnNext(udt -> {
+                        if (udt.getUserId() != null && udt.getToken() != null && !udt.getToken().isBlank()) {
+                            userTokens.computeIfAbsent(udt.getUserId().toLowerCase(), k -> ConcurrentHashMap.newKeySet()).add(udt.getToken().trim());
+                            userTokens.computeIfAbsent("default", k -> ConcurrentHashMap.newKeySet()).add(udt.getToken().trim());
+                        }
+                    })
+                    .doOnComplete(() -> LOG.info("Loaded persisted FCM device tokens from PostgreSQL user_device_tokens table"))
+                    .doOnError(err -> LOG.warn("Could not load tokens from user_device_tokens table yet: {}", err.getMessage()))
+                    .subscribe();
+            } catch (Exception e) {
+                LOG.warn("Failed to initialize tokens from DB: {}", e.getMessage());
+            }
+        }
+
+        // 2. Load from disk properties fallback
         try {
             if (Files.exists(TOKENS_FILE)) {
                 Properties props = new Properties();
@@ -73,25 +99,68 @@ public class FirebasePushNotificationService {
     }
 
     public void registerToken(String userId, String token) {
+        registerToken(userId, token, null);
+    }
+
+    public void registerToken(String userId, String token, String deviceType) {
         if (userId != null && token != null && !token.isBlank()) {
-            userTokens.computeIfAbsent(userId.toLowerCase(), k -> ConcurrentHashMap.newKeySet()).add(token);
-            userTokens.computeIfAbsent("default", k -> ConcurrentHashMap.newKeySet()).add(token);
+            final String cleanUserId = userId.toLowerCase().trim();
+            final String cleanToken = token.trim();
+
+            userTokens.computeIfAbsent(cleanUserId, k -> ConcurrentHashMap.newKeySet()).add(cleanToken);
+            userTokens.computeIfAbsent("default", k -> ConcurrentHashMap.newKeySet()).add(cleanToken);
             persistTokens();
-            LOG.info("Registered and persisted FCM token for user: {} (token={})", userId, maskToken(token));
+            LOG.info("Registered and cached FCM token for user: {} (token={})", cleanUserId, maskToken(cleanToken));
+
+            // Persist to PostgreSQL user_device_tokens table
+            if (userDeviceTokenRepository != null) {
+                userDeviceTokenRepository.findByToken(cleanToken)
+                    .flatMap(existing -> {
+                        existing.setUserId(cleanUserId);
+                        if (deviceType != null && !deviceType.isBlank()) {
+                            existing.setDeviceType(deviceType.trim().toUpperCase());
+                        }
+                        existing.setUpdatedAt(Instant.now());
+                        return userDeviceTokenRepository.save(existing);
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        UserDeviceToken newToken = new UserDeviceToken();
+                        newToken.setUserId(cleanUserId);
+                        newToken.setToken(cleanToken);
+                        newToken.setDeviceType(deviceType != null ? deviceType.trim().toUpperCase() : null);
+                        newToken.setCreatedAt(Instant.now());
+                        newToken.setUpdatedAt(Instant.now());
+                        return userDeviceTokenRepository.save(newToken);
+                    }))
+                    .subscribe(
+                        saved -> LOG.info("Successfully persisted device token into user_device_tokens table for user: {}", cleanUserId),
+                        err -> LOG.warn("Could not save token into user_device_tokens table: {}", err.getMessage())
+                    );
+            }
         }
     }
 
     public void removeToken(String token) {
         if (token == null || token.isBlank()) return;
+        final String cleanToken = token.trim();
         boolean changed = false;
         for (Set<String> tokens : userTokens.values()) {
-            if (tokens.remove(token)) {
+            if (tokens.remove(cleanToken)) {
                 changed = true;
             }
         }
         if (changed) {
             persistTokens();
-            LOG.info("Removed unregistered FCM token: {}", maskToken(token));
+            LOG.info("Removed unregistered FCM token from memory cache: {}", maskToken(cleanToken));
+        }
+
+        // Delete from PostgreSQL user_device_tokens table
+        if (userDeviceTokenRepository != null) {
+            userDeviceTokenRepository.deleteByToken(cleanToken)
+                .subscribe(
+                    deletedCount -> LOG.info("Deleted unregistered token from user_device_tokens table: count={}", deletedCount),
+                    err -> LOG.warn("Could not delete token from user_device_tokens table: {}", err.getMessage())
+                );
         }
     }
 
