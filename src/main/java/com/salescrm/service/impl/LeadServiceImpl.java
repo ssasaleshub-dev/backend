@@ -8,6 +8,7 @@ import com.salescrm.service.mapper.LeadMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -26,9 +27,12 @@ public class LeadServiceImpl implements LeadService {
 
     private final LeadMapper leadMapper;
 
-    public LeadServiceImpl(LeadRepository leadRepository, LeadMapper leadMapper) {
+    private final DatabaseClient databaseClient;
+
+    public LeadServiceImpl(LeadRepository leadRepository, LeadMapper leadMapper, DatabaseClient databaseClient) {
         this.leadRepository = leadRepository;
         this.leadMapper = leadMapper;
+        this.databaseClient = databaseClient;
     }
 
     @Override
@@ -111,8 +115,25 @@ public class LeadServiceImpl implements LeadService {
     }
 
     @Override
+    @Transactional
     public Mono<Void> delete(Long id) {
         LOG.debug("Request to delete Lead : {}", id);
-        return leadRepository.deleteById(id);
+        return databaseClient.sql("DELETE FROM lead_activity WHERE lead_id = :id")
+            .bind("id", id)
+            .fetch()
+            .rowsUpdated()
+            .then(
+                databaseClient.sql("DELETE FROM lead_preference WHERE lead_id = :id")
+                    .bind("id", id)
+                    .fetch()
+                    .rowsUpdated()
+            )
+            .then(
+                databaseClient.sql("DELETE FROM crm_events_reminders WHERE candidate_id = :id")
+                    .bind("id", id)
+                    .fetch()
+                    .rowsUpdated()
+            )
+            .then(leadRepository.deleteById(id));
     }
 }
