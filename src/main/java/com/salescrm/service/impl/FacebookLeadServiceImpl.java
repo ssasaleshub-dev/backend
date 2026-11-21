@@ -114,6 +114,12 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             return Mono.empty();
         }
 
+        // Meta Developer Portal sends dummy leadgen_id="444444444444" when clicking the dashboard Test button
+        if ("444444444444".equals(leadgenId) || leadgenId.matches("^4{6,}$")) {
+            LOG.info("Received Meta Developer Dashboard mock test event (leadgen_id={}). Mock ID does not exist in Graph API. Acknowledged successfully.", leadgenId);
+            return Mono.empty();
+        }
+
         // Idempotency check: Guard against duplicate webhooks from Meta
         return leadRepository.findByExternalId(leadgenId)
             .flatMap(existing -> {
