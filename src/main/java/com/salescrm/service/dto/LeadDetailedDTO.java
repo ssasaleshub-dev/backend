@@ -56,9 +56,7 @@ public class LeadDetailedDTO implements Serializable {
     private String leadConfirm;
     private String assignedTo;
 
-    // Legacy / Survey fields
-    private String mattressType;
-    private String mattressSize;
+    // Survey / timeline fields
     private String budgetRange;
     private String purchaseTimeline;
     private String closingDate;
@@ -258,22 +256,6 @@ public class LeadDetailedDTO implements Serializable {
         this.preferenceId = preferenceId;
     }
 
-    public String getMattressType() {
-        return mattressType;
-    }
-
-    public void setMattressType(String mattressType) {
-        this.mattressType = mattressType;
-    }
-
-    public String getMattressSize() {
-        return mattressSize;
-    }
-
-    public void setMattressSize(String mattressSize) {
-        this.mattressSize = mattressSize;
-    }
-
     public String getBudgetRange() {
         return budgetRange;
     }
@@ -397,25 +379,19 @@ public class LeadDetailedDTO implements Serializable {
     }
 
     public String getPaymentStatus() {
-        return paymentStatus != null ? paymentStatus : mattressType;
+        return paymentStatus;
     }
 
     public void setPaymentStatus(String paymentStatus) {
         this.paymentStatus = paymentStatus;
-        if (this.mattressType == null) {
-            this.mattressType = paymentStatus;
-        }
     }
 
     public String getPaymentDetails() {
-        return paymentDetails != null ? paymentDetails : mattressSize;
+        return paymentDetails;
     }
 
     public void setPaymentDetails(String paymentDetails) {
         this.paymentDetails = paymentDetails;
-        if (this.mattressSize == null) {
-            this.mattressSize = paymentDetails;
-        }
     }
 
     public String getStudentPercentage() {

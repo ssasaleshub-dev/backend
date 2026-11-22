@@ -119,9 +119,6 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             dto.setAreYouWorking(getValue(values, headerMap, "are_you_currently_working", "are_you_working"));
             dto.setLeadConfirm(getValue(values, headerMap, "lead_confirm", "lead confirm", "confirm"));
 
-            // Legacy mattress fields (backward compatibility)
-            dto.setMattressType(getValue(values, headerMap, "what_type_of_mattress_are_you_looking_for?", "mattress_type"));
-            dto.setMattressSize(getValue(values, headerMap, "what_mattress_size_do_you_need?", "mattress_size"));
             dto.setPreferredBudget(getValue(values, headerMap, "what_is_your_preferred_budget?", "preferred_budget", "budget"));
             dto.setPlanningToBuy(getValue(values, headerMap, "when_are_you_planning_to_buy?", "planning_to_buy", "timeline"));
 

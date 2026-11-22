@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        lead_preference still carried column names from the original project template.
+        They have long held the candidate's payment status (UNPAID / PARTIAL / PAID) and payment
+        details; rename them to match. Data is preserved. Each rename only runs when the old
+        column exists and the new one does not, so it is safe on any database state.
+    -->
+    <changeSet id="20261122120000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="lead_preference" columnName="mattress_type"/>
+            <not>
+                <columnExists tableName="lead_preference" columnName="payment_status"/>
+            </not>
+        </preConditions>
+        <renameColumn tableName="lead_preference" oldColumnName="mattress_type" newColumnName="payment_status" columnDataType="varchar(255)"/>
+    </changeSet>
+
+    <changeSet id="20261122120000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="lead_preference" columnName="mattress_size"/>
+            <not>
+                <columnExists tableName="lead_preference" columnName="payment_details"/>
+            </not>
+        </preConditions>
+        <renameColumn tableName="lead_preference" oldColumnName="mattress_size" newColumnName="payment_details" columnDataType="varchar(255)"/>
+    </changeSet>
+
+</databaseChangeLog>

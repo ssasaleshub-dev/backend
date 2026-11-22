@@ -96,9 +96,7 @@ public class FacebookLeadMapper {
         dto.setAreYouWorking(getFirstMatching(fieldMap, "are_you_currently_working", "are_you_working"));
         dto.setLeadConfirm(getFirstMatching(fieldMap, "lead_confirm", "confirm"));
 
-        // Product survey custom questions (mattress)
-        dto.setMattressType(getFirstMatching(fieldMap, "what_type_of_mattress_are_you_looking_for", "mattress_type"));
-        dto.setMattressSize(getFirstMatching(fieldMap, "what_mattress_size_do_you_need", "mattress_size"));
+        // Product survey custom questions
         dto.setPreferredBudget(getFirstMatching(fieldMap, "what_is_your_preferred_budget", "preferred_budget", "budget"));
         dto.setPlanningToBuy(getFirstMatching(fieldMap, "when_are_you_planning_to_buy", "planning_to_buy", "timeline"));
 

@@ -11,8 +11,8 @@ public class LeadPreferenceSqlHelper {
     public static List<Expression> getColumns(Table table, String columnPrefix) {
         List<Expression> columns = new ArrayList<>();
         columns.add(Column.aliased("id", table, columnPrefix + "_id"));
-        columns.add(Column.aliased("mattress_type", table, columnPrefix + "_mattress_type"));
-        columns.add(Column.aliased("mattress_size", table, columnPrefix + "_mattress_size"));
+        columns.add(Column.aliased("payment_status", table, columnPrefix + "_payment_status"));
+        columns.add(Column.aliased("payment_details", table, columnPrefix + "_payment_details"));
         columns.add(Column.aliased("budget_range", table, columnPrefix + "_budget_range"));
         columns.add(Column.aliased("purchase_timeline", table, columnPrefix + "_purchase_timeline"));
         columns.add(Column.aliased("visa_type", table, columnPrefix + "_visa_type"));

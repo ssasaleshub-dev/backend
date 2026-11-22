@@ -1,10 +1,13 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.domain.CrmNotification;
+import com.salescrm.repository.CrmNotificationRepository;
 import com.salescrm.repository.UserRepository;
+import com.salescrm.security.LeadAccessScope;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FirebasePushNotificationService;
+import com.salescrm.service.LeadAccessService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -16,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.reactive.ResponseUtil;
@@ -32,20 +36,51 @@ public class NotificationResource {
     private final CrmNotificationService crmNotificationService;
     private final FirebasePushNotificationService firebasePushNotificationService;
     private final UserRepository userRepository;
-
-    public NotificationResource(CrmNotificationService crmNotificationService) {
-        this(crmNotificationService, null, null);
-    }
+    private final CrmNotificationRepository crmNotificationRepository;
+    private final LeadAccessService leadAccessService;
 
     @Autowired
     public NotificationResource(
         CrmNotificationService crmNotificationService,
         @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
-        UserRepository userRepository
+        UserRepository userRepository,
+        CrmNotificationRepository crmNotificationRepository,
+        LeadAccessService leadAccessService
     ) {
         this.firebasePushNotificationService = firebasePushNotificationService;
         this.crmNotificationService = crmNotificationService;
         this.userRepository = userRepository;
+        this.crmNotificationRepository = crmNotificationRepository;
+        this.leadAccessService = leadAccessService;
+    }
+
+    /** The current user's numeric id as a string ("" when unknown). Notifications may be stored under it. */
+    private Mono<String> currentNumericUserId(LeadAccessScope scope) {
+        if (scope.getLogin().isEmpty() || userRepository == null) {
+            return Mono.just("");
+        }
+        return userRepository
+            .findOneByLogin(scope.getLogin().toLowerCase())
+            .map(u -> u.getId() != null ? u.getId().toString() : "")
+            .defaultIfEmpty("");
+    }
+
+    /** Admins may act on any notification; everyone else only on their own. */
+    private Mono<Void> checkNotificationOwnership(UUID id) {
+        return leadAccessService.currentScope().flatMap(scope -> {
+            if (scope.isAdmin()) {
+                return Mono.<Void>empty();
+            }
+            return crmNotificationRepository
+                .findById(id)
+                .flatMap(notification ->
+                    currentNumericUserId(scope).flatMap(numericId -> {
+                        String owner = notification.getUserId() != null ? notification.getUserId().trim() : "";
+                        boolean mine = owner.equalsIgnoreCase(scope.getLogin()) || (!numericId.isEmpty() && owner.equals(numericId));
+                        return mine ? Mono.<Void>empty() : Mono.<Void>error(new AccessDeniedException("Not your notification"));
+                    })
+                );
+        });
     }
 
     /**
@@ -58,18 +93,17 @@ public class NotificationResource {
         String numericId = payload != null ? payload.get("numericId") : null;
         String deviceType = payload != null ? (payload.get("deviceType") != null ? payload.get("deviceType") : payload.get("platform")) : null;
 
+        // A device is only ever registered for the authenticated user. The userId / numericId sent
+        // by the client are ignored: honouring them would let anyone receive another user's pushes.
+        if (requestedUserId != null || numericId != null) {
+            LOG.debug("Ignoring client-supplied user identifiers on FCM token registration");
+        }
         return SecurityUtils.getCurrentUserLogin()
-            .defaultIfEmpty(requestedUserId != null && !requestedUserId.isBlank() ? requestedUserId : "admin")
+            .switchIfEmpty(Mono.error(new AccessDeniedException("Login required to register a device")))
             .flatMap(rawLogin -> {
                 String login = rawLogin.trim().toLowerCase();
                 if (firebasePushNotificationService != null && token != null) {
                     firebasePushNotificationService.registerToken(login, token, deviceType);
-                    if (requestedUserId != null) {
-                        firebasePushNotificationService.registerToken(requestedUserId.trim().toLowerCase(), token, deviceType);
-                    }
-                    if (numericId != null) {
-                        firebasePushNotificationService.registerToken(numericId.trim(), token, deviceType);
-                    }
                 }
                 return userRepository.findOneByLogin(login)
                     .doOnNext(user -> {
@@ -92,28 +126,41 @@ public class NotificationResource {
      */
     @PostMapping("/test-push")
     public Mono<ResponseEntity<Map<String, Object>>> sendTestPush(@RequestBody(required = false) Map<String, String> payload) {
-        String targetUser = payload != null && payload.get("userId") != null ? payload.get("userId") : "admin";
+        String requestedTarget = payload != null && payload.get("userId") != null ? payload.get("userId") : null;
         String title = payload != null && payload.get("title") != null ? payload.get("title") : "Test Push Notification";
         String body = payload != null && payload.get("body") != null ? payload.get("body") : "Testing push notification delivery";
 
-        if (firebasePushNotificationService != null) {
-            Map<String, String> data = new HashMap<>();
-            data.put("type", "TEST");
-            data.put("route", "/chat");
-            firebasePushNotificationService.sendPushNotification(targetUser, title, body, data);
-        }
+        return leadAccessService.currentScope().map(scope -> {
+            // Admins may test-push anyone; everyone else only themselves
+            String targetUser = scope.isAdmin() && requestedTarget != null ? requestedTarget : scope.getLogin();
+            if (firebasePushNotificationService != null && !targetUser.isEmpty()) {
+                Map<String, String> data = new HashMap<>();
+                data.put("type", "TEST");
+                data.put("route", "/chat");
+                firebasePushNotificationService.sendPushNotification(targetUser, title, body, data);
+            }
 
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "dispatched");
-        resp.put("targetUser", targetUser);
-        return Mono.just(ResponseEntity.ok(resp));
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("status", "dispatched");
+            resp.put("targetUser", targetUser);
+            return ResponseEntity.ok(resp);
+        });
     }
 
+    /**
+     * Whose inbox a request targets. Admins may name any user; everyone else always gets their
+     * own inbox (a client-supplied userId is ignored, so one user cannot read another's).
+     */
     private Mono<String> resolveUserId(String requestedUserId) {
-        if (requestedUserId != null && !requestedUserId.isBlank()) {
-            return Mono.just(requestedUserId.trim().toLowerCase());
-        }
-        return SecurityUtils.getCurrentUserLogin().map(String::toLowerCase).defaultIfEmpty("admin");
+        return leadAccessService.currentScope().flatMap(scope -> {
+            if (scope.isAdmin() && requestedUserId != null && !requestedUserId.isBlank()) {
+                return Mono.just(requestedUserId.trim().toLowerCase());
+            }
+            if (scope.getLogin().isEmpty()) {
+                return Mono.error(new AccessDeniedException("Login required"));
+            }
+            return Mono.just(scope.getLogin().toLowerCase());
+        });
     }
 
     /**
@@ -154,9 +201,13 @@ public class NotificationResource {
     @PostMapping("")
     public Mono<ResponseEntity<CrmNotification>> createNotification(@Valid @RequestBody CrmNotification notification) {
         LOG.debug("REST request to create CrmNotification : {}", notification);
-        Mono<String> userResolver = (notification.getUserId() != null && !notification.getUserId().isBlank())
-            ? Mono.just(notification.getUserId())
-            : SecurityUtils.getCurrentUserLogin().defaultIfEmpty("admin");
+        String requestedOwner = notification.getUserId();
+        Mono<String> userResolver = leadAccessService.currentScope().map(scope -> {
+            if (scope.isAdmin() && requestedOwner != null && !requestedOwner.isBlank()) {
+                return requestedOwner;
+            }
+            return scope.getLogin().isEmpty() ? "admin" : scope.getLogin();
+        });
 
         return userResolver.flatMap(userId -> {
             notification.setUserId(userId);
@@ -189,8 +240,8 @@ public class NotificationResource {
             LOG.warn("Non-UUID notification id received for markAsRead: {}. Returning noContent.", id);
             return Mono.just(ResponseEntity.noContent().build());
         }
-        return crmNotificationService
-            .markAsRead(uuid)
+        return checkNotificationOwnership(uuid)
+            .then(Mono.defer(() -> crmNotificationService.markAsRead(uuid)))
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.noContent().build());
     }
@@ -233,7 +284,9 @@ public class NotificationResource {
             LOG.warn("Non-UUID notification id received for deleteNotification: {}. Returning noContent.", id);
             return Mono.just(ResponseEntity.noContent().build());
         }
-        return crmNotificationService.deleteNotification(uuid).thenReturn(ResponseEntity.noContent().build());
+        return checkNotificationOwnership(uuid)
+            .then(Mono.defer(() -> crmNotificationService.deleteNotification(uuid)))
+            .thenReturn(ResponseEntity.noContent().build());
     }
 
     public Mono<ResponseEntity<Void>> deleteNotification(UUID id) {

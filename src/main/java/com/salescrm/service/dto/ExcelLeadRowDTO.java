@@ -32,8 +32,6 @@ public class ExcelLeadRowDTO implements Serializable {
     private String platform;
 
     // Survey / Questionnaire questions from Instant Form
-    private String mattressType;
-    private String mattressSize;
     private String preferredBudget;
     private String planningToBuy;
     private String location;
@@ -164,22 +162,6 @@ public class ExcelLeadRowDTO implements Serializable {
 
     public void setPlatform(String platform) {
         this.platform = platform;
-    }
-
-    public String getMattressType() {
-        return mattressType;
-    }
-
-    public void setMattressType(String mattressType) {
-        this.mattressType = mattressType;
-    }
-
-    public String getMattressSize() {
-        return mattressSize;
-    }
-
-    public void setMattressSize(String mattressSize) {
-        this.mattressSize = mattressSize;
     }
 
     public String getPreferredBudget() {

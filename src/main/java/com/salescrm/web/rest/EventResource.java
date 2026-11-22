@@ -1,9 +1,9 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.domain.CrmEvent;
-import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.CrmEventService;
 import com.salescrm.service.FirebasePushNotificationService;
+import com.salescrm.service.LeadAccessService;
 import com.salescrm.service.LeadActivityService;
 import com.salescrm.service.dto.LeadActivityDTO;
 import com.salescrm.service.util.LeadIdCrypto;
@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.reactive.ResponseUtil;
@@ -33,20 +34,42 @@ public class EventResource {
     private final CrmEventService crmEventService;
     private final LeadActivityService leadActivityService;
     private final FirebasePushNotificationService firebasePushNotificationService;
-
-    public EventResource(CrmEventService crmEventService) {
-        this(crmEventService, null, null);
-    }
+    private final LeadAccessService leadAccessService;
 
     @Autowired
     public EventResource(
         CrmEventService crmEventService,
         @Autowired(required = false) LeadActivityService leadActivityService,
-        @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService
+        @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
+        LeadAccessService leadAccessService
     ) {
         this.crmEventService = crmEventService;
         this.leadActivityService = leadActivityService;
         this.firebasePushNotificationService = firebasePushNotificationService;
+        this.leadAccessService = leadAccessService;
+    }
+
+    /**
+     * A reminder is accessible to admins, to its owner, and (when it belongs to a candidate)
+     * to anyone who has access to that candidate lead.
+     */
+    private Mono<Void> checkEventAccess(CrmEvent event) {
+        return leadAccessService.currentScope().flatMap(scope -> {
+            if (scope.isAdmin()) {
+                return Mono.<Void>empty();
+            }
+            if (event.getUserId() != null && !scope.getLogin().isEmpty() && event.getUserId().equalsIgnoreCase(scope.getLogin())) {
+                return Mono.<Void>empty();
+            }
+            if (event.getCandidateId() != null) {
+                return leadAccessService.checkLeadAccess(event.getCandidateId());
+            }
+            return Mono.<Void>error(new AccessDeniedException("You do not have access to this reminder"));
+        });
+    }
+
+    private Mono<CrmEvent> loadAuthorizedEvent(UUID id) {
+        return crmEventService.getEventById(id).flatMap(event -> checkEventAccess(event).thenReturn(event));
     }
 
     /**
@@ -67,17 +90,28 @@ public class EventResource {
             }
         }
 
-        if (userId != null && !userId.isBlank()) {
-            return crmEventService.getEvents(userId, resolvedCandidateId).collectList().map(ResponseEntity::ok);
-        }
+        final Long candidateFilter = resolvedCandidateId;
+        final String requestedUser = userId != null && !userId.isBlank() ? userId.trim() : null;
 
-        if (resolvedCandidateId != null) {
-            return crmEventService.getEvents(null, resolvedCandidateId).collectList().map(ResponseEntity::ok);
-        }
+        return leadAccessService.currentScope().flatMap(scope -> {
+            boolean ownOrAdmin = requestedUser == null || scope.isAdmin() || requestedUser.equalsIgnoreCase(scope.getLogin());
+            if (!ownOrAdmin) {
+                return Mono.<List<CrmEvent>>error(new AccessDeniedException("You can only view your own reminders"));
+            }
 
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(login -> crmEventService.getEvents(login, null).collectList().map(ResponseEntity::ok))
-            .switchIfEmpty(Mono.defer(() -> crmEventService.getEvents(null, null).collectList().map(ResponseEntity::ok)));
+            if (candidateFilter != null) {
+                // Reminders for a candidate are visible to anyone with access to that candidate
+                return leadAccessService
+                    .checkLeadAccess(candidateFilter)
+                    .then(Mono.defer(() -> crmEventService.getEvents(requestedUser, candidateFilter).collectList()));
+            }
+
+            String owner = requestedUser != null ? requestedUser : scope.getLogin();
+            if (owner.isEmpty()) {
+                return Mono.just(List.<CrmEvent>of());
+            }
+            return crmEventService.getEvents(owner, null).collectList();
+        }).map(ResponseEntity::ok);
     }
 
     /**
@@ -86,7 +120,7 @@ public class EventResource {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<CrmEvent>> getEvent(@PathVariable UUID id) {
         LOG.debug("REST request to get CrmEvent : {}", id);
-        return ResponseUtil.wrapOrNotFound(crmEventService.getEventById(id));
+        return ResponseUtil.wrapOrNotFound(loadAuthorizedEvent(id));
     }
 
     /**
@@ -95,9 +129,21 @@ public class EventResource {
     @PostMapping("")
     public Mono<ResponseEntity<CrmEvent>> createEvent(@Valid @RequestBody CrmEvent event) {
         LOG.debug("REST request to create CrmEvent : {}", event);
-        Mono<String> userResolver = (event.getUserId() != null && !event.getUserId().isBlank() && !"current".equalsIgnoreCase(event.getUserId()))
-            ? Mono.just(event.getUserId())
-            : SecurityUtils.getCurrentUserLogin().defaultIfEmpty("admin");
+        boolean explicitUser = event.getUserId() != null && !event.getUserId().isBlank() && !"current".equalsIgnoreCase(event.getUserId());
+        Mono<String> userResolver = leadAccessService.currentScope().flatMap(scope -> {
+            String self = scope.getLogin().isEmpty() ? "admin" : scope.getLogin();
+            Mono<Void> guard = event.getCandidateId() != null ? leadAccessService.checkLeadAccess(event.getCandidateId()) : Mono.empty();
+            String owner;
+            if (!explicitUser) {
+                owner = self;
+            } else if (scope.isAdmin() || event.getUserId().equalsIgnoreCase(self) || event.getCandidateId() != null) {
+                // Staff may schedule a candidate reminder for that candidate's counselor
+                owner = event.getUserId();
+            } else {
+                owner = self;
+            }
+            return guard.thenReturn(owner);
+        });
 
         return userResolver.flatMap(userId -> {
             event.setUserId(userId);
@@ -129,8 +175,13 @@ public class EventResource {
     @PutMapping("/{id}")
     public Mono<ResponseEntity<CrmEvent>> updateEvent(@PathVariable UUID id, @RequestBody CrmEvent event) {
         LOG.debug("REST request to update CrmEvent : {}, data: {}", id, event);
-        return crmEventService
-            .updateEvent(id, event)
+        return loadAuthorizedEvent(id)
+            .flatMap(existing ->
+                event.getCandidateId() != null && !event.getCandidateId().equals(existing.getCandidateId())
+                    ? leadAccessService.checkLeadAccess(event.getCandidateId()).thenReturn(existing)
+                    : Mono.just(existing)
+            )
+            .flatMap(existing -> crmEventService.updateEvent(id, event))
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -154,8 +205,9 @@ public class EventResource {
             }
         }
 
-        return crmEventService
-            .toggleComplete(id, targetState)
+        final Boolean desiredState = targetState;
+        return loadAuthorizedEvent(id)
+            .flatMap(existing -> crmEventService.toggleComplete(id, desiredState))
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -166,6 +218,8 @@ public class EventResource {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteEvent(@PathVariable UUID id) {
         LOG.debug("REST request to delete CrmEvent : {}", id);
-        return crmEventService.deleteEvent(id).thenReturn(ResponseEntity.noContent().build());
+        return loadAuthorizedEvent(id)
+            .flatMap(existing -> crmEventService.deleteEvent(id))
+            .thenReturn(ResponseEntity.noContent().build());
     }
 }

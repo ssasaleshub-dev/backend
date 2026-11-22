@@ -5,6 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.salescrm.repository.LeadPreferenceRepository;
+import com.salescrm.security.AuthoritiesConstants;
+import com.salescrm.service.LeadAccessService;
 import com.salescrm.service.LeadImportService;
 import com.salescrm.service.dto.LeadImportResultDTO;
 import java.io.InputStream;
@@ -20,6 +23,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -36,7 +42,7 @@ class LeadImportResourceTest {
 
     @BeforeEach
     void setUp() {
-        resource = new LeadImportResource(leadImportService);
+        resource = new LeadImportResource(leadImportService, new LeadAccessService(org.mockito.Mockito.mock(LeadPreferenceRepository.class)));
     }
 
     @Test
@@ -140,7 +146,15 @@ class LeadImportResourceTest {
 
         when(leadImportService.importSampleData()).thenReturn(Mono.just(mockResult));
 
-        ResponseEntity<LeadImportResultDTO> response = resource.importSample().block();
+        // Seeding sample data is admin-only
+        ResponseEntity<LeadImportResultDTO> response = resource
+            .importSample()
+            .contextWrite(
+                ReactiveSecurityContextHolder.withAuthentication(
+                    new UsernamePasswordAuthenticationToken("admin", "n/a", AuthorityUtils.createAuthorityList(AuthoritiesConstants.ADMIN))
+                )
+            )
+            .block();
 
         assertThat(response).isNotNull();
         assertThat(response.getBody()).isNotNull();

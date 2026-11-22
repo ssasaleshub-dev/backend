@@ -1,6 +1,8 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.domain.LeadActivity;
+import com.salescrm.security.SecurityUtils;
+import com.salescrm.service.LeadAccessService;
 import com.salescrm.service.LeadActivityService;
 import com.salescrm.service.dto.LeadActivityDTO;
 import com.salescrm.service.util.LeadIdCrypto;
@@ -25,8 +27,11 @@ public class LeadActivityResource {
 
     private final LeadActivityService leadActivityService;
 
-    public LeadActivityResource(LeadActivityService leadActivityService) {
+    private final LeadAccessService leadAccessService;
+
+    public LeadActivityResource(LeadActivityService leadActivityService, LeadAccessService leadAccessService) {
         this.leadActivityService = leadActivityService;
+        this.leadAccessService = leadAccessService;
     }
 
     /**
@@ -43,7 +48,7 @@ public class LeadActivityResource {
             return Flux.empty();
         }
         LOG.debug("REST request to get Lead Activities for lead ID: {}", leadId);
-        return leadActivityService.getActivitiesForLead(leadId);
+        return leadAccessService.checkLeadAccess(leadId).thenMany(Flux.defer(() -> leadActivityService.getActivitiesForLead(leadId)));
     }
 
     /**
@@ -73,11 +78,14 @@ public class LeadActivityResource {
         if (leadActivityDTO.getActionType() == null || leadActivityDTO.getActionType().isBlank()) {
             leadActivityDTO.setActionType("DATA_MODIFY");
         }
-        if (leadActivityDTO.getUserName() == null || leadActivityDTO.getUserName().isBlank()) {
-            leadActivityDTO.setUserName("Counselor");
-        }
-
-        return leadActivityService.logActivity(leadActivityDTO)
+        // The audit log records the authenticated user, never a client-supplied name
+        return leadAccessService
+            .checkLeadAccess(leadId)
+            .then(SecurityUtils.getCurrentUserLogin().defaultIfEmpty("Counselor"))
+            .flatMap(login -> {
+                leadActivityDTO.setUserName(login);
+                return leadActivityService.logActivity(leadActivityDTO);
+            })
             .map(result -> ResponseEntity.status(HttpStatus.CREATED).body(result));
     }
 

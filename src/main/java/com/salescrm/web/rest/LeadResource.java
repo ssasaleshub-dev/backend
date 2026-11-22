@@ -45,9 +45,16 @@ public class LeadResource {
 
     private final LeadRepository leadRepository;
 
-    public LeadResource(LeadService leadService, LeadRepository leadRepository) {
+    private final com.salescrm.service.LeadAccessService leadAccessService;
+
+    public LeadResource(
+        LeadService leadService,
+        LeadRepository leadRepository,
+        com.salescrm.service.LeadAccessService leadAccessService
+    ) {
         this.leadService = leadService;
         this.leadRepository = leadRepository;
+        this.leadAccessService = leadAccessService;
     }
 
     /**
@@ -103,8 +110,9 @@ public class LeadResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        return leadRepository
-            .existsById(numericId)
+        return leadAccessService
+            .checkLeadAccess(numericId)
+            .then(Mono.defer(() -> leadRepository.existsById(numericId)))
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -149,8 +157,9 @@ public class LeadResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        return leadRepository
-            .existsById(numericId)
+        return leadAccessService
+            .checkLeadAccess(numericId)
+            .then(Mono.defer(() -> leadRepository.existsById(numericId)))
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -184,6 +193,21 @@ public class LeadResource {
         @RequestParam(name = "filter", required = false) String filter,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
     ) {
+        return leadAccessService.currentScope().flatMap(scope -> {
+            if (!scope.isAdmin()) {
+                // Non-admins only get leads they are allowed to see (no unscoped totals in headers)
+                LOG.debug("REST request to get a scoped page of Leads for {}", scope.getLogin());
+                return leadService
+                    .findAll(pageable)
+                    .filterWhen(dto -> leadAccessService.canAccessLead(dto.getId()))
+                    .collectList()
+                    .map(ResponseEntity::ok);
+            }
+            return getAllLeadsUnscoped(pageable, request, filter);
+        });
+    }
+
+    private Mono<ResponseEntity<List<LeadDTO>>> getAllLeadsUnscoped(Pageable pageable, ServerHttpRequest request, String filter) {
         if ("leadpreference-is-null".equals(filter)) {
             LOG.debug("REST request to get all Leads where leadPreference is null");
             return leadService.findAllWhereLeadPreferenceIsNull().collectList().map(ResponseEntity::ok);
@@ -217,7 +241,7 @@ public class LeadResource {
             return Mono.just(ResponseEntity.notFound().build());
         }
         LOG.debug("REST request to get Lead : {}", numericId);
-        Mono<LeadDTO> leadDTO = leadService.findOne(numericId);
+        Mono<LeadDTO> leadDTO = leadAccessService.checkLeadAccess(numericId).then(Mono.defer(() -> leadService.findOne(numericId)));
         return ResponseUtil.wrapOrNotFound(leadDTO);
     }
 
@@ -234,8 +258,10 @@ public class LeadResource {
             return Mono.just(ResponseEntity.notFound().build());
         }
         LOG.debug("REST request to delete Lead : {}", numericId);
-        return leadService
-            .delete(numericId)
+        // Deleting candidate leads is restricted to administrators
+        return leadAccessService
+            .requireAdmin()
+            .then(Mono.defer(() -> leadService.delete(numericId)))
             .then(
                 Mono.just(
                     ResponseEntity.noContent()

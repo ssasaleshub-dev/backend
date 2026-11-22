@@ -47,9 +47,20 @@ public class CustomerResource {
 
     private final CustomerRepository customerRepository;
 
-    public CustomerResource(CustomerService customerService, CustomerRepository customerRepository) {
+    private final com.salescrm.repository.LeadRepository leadRepository;
+
+    private final com.salescrm.service.LeadAccessService leadAccessService;
+
+    public CustomerResource(
+        CustomerService customerService,
+        CustomerRepository customerRepository,
+        com.salescrm.repository.LeadRepository leadRepository,
+        com.salescrm.service.LeadAccessService leadAccessService
+    ) {
         this.customerService = customerService;
         this.customerRepository = customerRepository;
+        this.leadRepository = leadRepository;
+        this.leadAccessService = leadAccessService;
     }
 
     /**
@@ -230,8 +241,25 @@ public class CustomerResource {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteCustomer(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete Customer : {}", id);
-        return customerService
-            .delete(id)
+        // Admins may delete any customer. Staff may only delete a customer no lead refers to
+        // (e.g. rolling back a contact whose lead failed to save).
+        return leadAccessService
+            .currentScope()
+            .flatMap(scope ->
+                scope.isAdmin()
+                    ? Mono.<Void>empty()
+                    : leadRepository
+                        .findByCustomer(id)
+                        .hasElements()
+                        .flatMap(inUse ->
+                            inUse
+                                ? Mono.<Void>error(
+                                    new org.springframework.security.access.AccessDeniedException("Only administrators can delete contacts linked to leads")
+                                )
+                                : Mono.<Void>empty()
+                        )
+            )
+            .then(Mono.defer(() -> customerService.delete(id)))
             .then(
                 Mono.just(
                     ResponseEntity.noContent()

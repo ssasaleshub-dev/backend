@@ -120,9 +120,6 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 dto.setAreYouWorking(getCellValue(row, headerMap, "are_you_currently_working", "are_you_working"));
                 dto.setLeadConfirm(getCellValue(row, headerMap, "lead_confirm", "lead confirm", "confirm"));
 
-                // Legacy mattress fields (backward compatibility)
-                dto.setMattressType(getCellValue(row, headerMap, "what_type_of_mattress_are_you_looking_for?", "mattress_type"));
-                dto.setMattressSize(getCellValue(row, headerMap, "what_mattress_size_do_you_need?", "mattress_size"));
                 dto.setPreferredBudget(getCellValue(row, headerMap, "what_is_your_preferred_budget?", "preferred_budget", "budget"));
                 dto.setPlanningToBuy(getCellValue(row, headerMap, "when_are_you_planning_to_buy?", "planning_to_buy", "timeline"));
 

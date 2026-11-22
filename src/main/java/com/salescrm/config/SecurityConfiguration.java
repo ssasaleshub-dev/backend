@@ -13,6 +13,8 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
+import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
@@ -74,20 +76,11 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/activate").permitAll()
                     .pathMatchers("/api/account/reset-password/init").permitAll()
                     .pathMatchers("/api/account/reset-password/finish").permitAll()
+                    // Facebook lead webhooks are verified by FacebookWebhookVerificationService
                     .pathMatchers("/api/webhooks/**").permitAll()
-                    .pathMatchers("/api/leads/**").permitAll()
-                    .pathMatchers("/api/customers/**").permitAll()
-                    .pathMatchers("/api/campaigns/**").permitAll()
-                    .pathMatchers("/api/ads/**").permitAll()
-                    .pathMatchers("/api/ad-sets/**").permitAll()
-                    .pathMatchers("/api/lead-forms/**").permitAll()
-                    .pathMatchers("/api/lead-preferences/**").permitAll()
-                    .pathMatchers("/api/messages/**").permitAll()
-                    .pathMatchers("/api/chat/**").permitAll()
-                    .pathMatchers("/api/files/**").permitAll()
-                    .pathMatchers("/api/events/**").permitAll()
-                    .pathMatchers("/api/notifications/**").permitAll()
-                    .pathMatchers("/api/attendance/**").permitAll()
+                    // All CRM data (leads, customers, preferences, events, notifications, chat, files,
+                    // attendance) requires a logged-in user; per-lead and per-owner rules are enforced
+                    // in the resources via LeadAccessService.
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/**").authenticated()
@@ -98,7 +91,22 @@ public class SecurityConfiguration {
                     .pathMatchers("/management/**").hasAuthority(AuthoritiesConstants.ADMIN)
             )
             .httpBasic(basic -> basic.disable())
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()));
+            .oauth2ResourceServer(oauth2 -> oauth2.bearerTokenConverter(bearerTokenConverter()).jwt(withDefaults()));
         return http.build();
+    }
+
+    /**
+     * Reads the JWT from the Authorization header. Only for the chat SSE stream (EventSource cannot
+     * send headers) is the token also accepted as the {@code access_token} query parameter on GET.
+     */
+    private ServerAuthenticationConverter bearerTokenConverter() {
+        ServerBearerTokenAuthenticationConverter headerOnly = new ServerBearerTokenAuthenticationConverter();
+        ServerBearerTokenAuthenticationConverter headerOrQuery = new ServerBearerTokenAuthenticationConverter();
+        headerOrQuery.setAllowUriQueryParameter(true);
+        return exchange -> {
+            String path = exchange.getRequest().getPath().pathWithinApplication().value();
+            boolean sseStream = path.equals("/api/messages/stream") || path.equals("/api/chat/messages/stream");
+            return (sseStream ? headerOrQuery : headerOnly).convert(exchange);
+        };
     }
 }

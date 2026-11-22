@@ -1,7 +1,9 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.repository.LeadPreferenceRepository;
+import com.salescrm.service.LeadAccessService;
 import com.salescrm.service.LeadPreferenceService;
+import com.salescrm.service.dto.LeadDTO;
 import com.salescrm.service.dto.LeadPreferenceDTO;
 import com.salescrm.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
@@ -39,9 +41,47 @@ public class LeadPreferenceResource {
 
     private final LeadPreferenceRepository leadPreferenceRepository;
 
-    public LeadPreferenceResource(LeadPreferenceService leadPreferenceService, LeadPreferenceRepository leadPreferenceRepository) {
+    private final LeadAccessService leadAccessService;
+
+    public LeadPreferenceResource(
+        LeadPreferenceService leadPreferenceService,
+        LeadPreferenceRepository leadPreferenceRepository,
+        LeadAccessService leadAccessService
+    ) {
         this.leadPreferenceService = leadPreferenceService;
         this.leadPreferenceRepository = leadPreferenceRepository;
+        this.leadAccessService = leadAccessService;
+    }
+
+    /**
+     * Authorizes an update of an existing preference: the caller must have access to its lead.
+     * Non-admins cannot reassign the lead or re-point the preference at a different lead.
+     */
+    private Mono<Void> guardUpdate(Long id, LeadPreferenceDTO dto, boolean fullReplace) {
+        return leadPreferenceRepository
+            .findById(id)
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound")))
+            .flatMap(existing ->
+                leadAccessService
+                    .checkLeadAccess(existing.getLeadId())
+                    .then(leadAccessService.currentScope())
+                    .doOnNext(scope -> {
+                        if (scope.isAdmin()) {
+                            return;
+                        }
+                        if (fullReplace) {
+                            dto.setAssignedTo(existing.getAssignedTo());
+                            LeadDTO link = new LeadDTO();
+                            link.setId(existing.getLeadId());
+                            dto.setLead(link);
+                        } else {
+                            // Partial update ignores nulls, so these fields stay unchanged
+                            dto.setAssignedTo(null);
+                            dto.setLead(null);
+                        }
+                    })
+                    .then()
+            );
     }
 
     /**
@@ -58,8 +98,21 @@ public class LeadPreferenceResource {
         if (leadPreferenceDTO.getId() != null) {
             throw new BadRequestAlertException("A new leadPreference cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        return leadPreferenceService
-            .save(leadPreferenceDTO)
+        Long leadId = leadPreferenceDTO.getLead() != null ? leadPreferenceDTO.getLead().getId() : null;
+        return leadAccessService
+            .currentScope()
+            .flatMap(scope -> {
+                if (scope.isAdmin()) {
+                    return Mono.<Void>empty();
+                }
+                // Staff may only assign a new preference to themselves
+                String assignee = leadPreferenceDTO.getAssignedTo();
+                if (assignee != null && !assignee.trim().equalsIgnoreCase(scope.getLogin())) {
+                    leadPreferenceDTO.setAssignedTo(null);
+                }
+                return leadAccessService.checkCanCreatePreference(leadId);
+            })
+            .then(Mono.defer(() -> leadPreferenceService.save(leadPreferenceDTO)))
             .map(result -> {
                 try {
                     return ResponseEntity.created(new URI("/api/lead-preferences/" + result.getId()))
@@ -94,8 +147,8 @@ public class LeadPreferenceResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        return leadPreferenceRepository
-            .existsById(id)
+        return guardUpdate(id, leadPreferenceDTO, true)
+            .then(Mono.defer(() -> leadPreferenceRepository.existsById(id)))
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -136,8 +189,8 @@ public class LeadPreferenceResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        return leadPreferenceRepository
-            .existsById(id)
+        return guardUpdate(id, leadPreferenceDTO, false)
+            .then(Mono.defer(() -> leadPreferenceRepository.existsById(id)))
             .flatMap(exists -> {
                 if (!exists) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -166,7 +219,7 @@ public class LeadPreferenceResource {
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
     ) {
         LOG.debug("REST request to get all LeadPreferences");
-        return leadPreferenceService.findAll().collectList();
+        return leadAccessService.requireAdmin().then(Mono.defer(() -> leadPreferenceService.findAll().collectList()));
     }
 
     /**
@@ -176,7 +229,7 @@ public class LeadPreferenceResource {
     @GetMapping(value = "", produces = MediaType.APPLICATION_NDJSON_VALUE)
     public Flux<LeadPreferenceDTO> getAllLeadPreferencesAsStream() {
         LOG.debug("REST request to get all LeadPreferences as a stream");
-        return leadPreferenceService.findAll();
+        return leadAccessService.requireAdmin().thenMany(Flux.defer(() -> leadPreferenceService.findAll()));
     }
 
     /**
@@ -188,7 +241,10 @@ public class LeadPreferenceResource {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<LeadPreferenceDTO>> getLeadPreference(@PathVariable("id") Long id) {
         LOG.debug("REST request to get LeadPreference : {}", id);
-        Mono<LeadPreferenceDTO> leadPreferenceDTO = leadPreferenceService.findOne(id);
+        Mono<LeadPreferenceDTO> leadPreferenceDTO = leadPreferenceRepository
+            .findById(id)
+            .flatMap(existing -> leadAccessService.checkLeadAccess(existing.getLeadId()))
+            .then(Mono.defer(() -> leadPreferenceService.findOne(id)));
         return ResponseUtil.wrapOrNotFound(leadPreferenceDTO);
     }
 
@@ -201,8 +257,9 @@ public class LeadPreferenceResource {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteLeadPreference(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete LeadPreference : {}", id);
-        return leadPreferenceService
-            .delete(id)
+        return leadAccessService
+            .requireAdmin()
+            .then(Mono.defer(() -> leadPreferenceService.delete(id)))
             .then(
                 Mono.just(
                     ResponseEntity.noContent()

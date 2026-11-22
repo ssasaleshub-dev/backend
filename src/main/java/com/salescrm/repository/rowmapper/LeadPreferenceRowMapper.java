@@ -26,8 +26,8 @@ public class LeadPreferenceRowMapper implements BiFunction<Row, String, LeadPref
     public LeadPreference apply(Row row, String prefix) {
         LeadPreference entity = new LeadPreference();
         entity.setId(converter.fromRow(row, prefix + "_id", Long.class));
-        entity.setMattressType(converter.fromRow(row, prefix + "_mattress_type", String.class));
-        entity.setMattressSize(converter.fromRow(row, prefix + "_mattress_size", String.class));
+        entity.setPaymentStatus(converter.fromRow(row, prefix + "_payment_status", String.class));
+        entity.setPaymentDetails(converter.fromRow(row, prefix + "_payment_details", String.class));
         entity.setBudgetRange(converter.fromRow(row, prefix + "_budget_range", String.class));
         entity.setPurchaseTimeline(converter.fromRow(row, prefix + "_purchase_timeline", String.class));
         entity.setVisaType(converter.fromRow(row, prefix + "_visa_type", String.class));

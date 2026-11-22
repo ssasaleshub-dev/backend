@@ -24,8 +24,11 @@ public class LeadImportResource {
 
     private final LeadImportService leadImportService;
 
-    public LeadImportResource(LeadImportService leadImportService) {
+    private final com.salescrm.service.LeadAccessService leadAccessService;
+
+    public LeadImportResource(LeadImportService leadImportService, com.salescrm.service.LeadAccessService leadAccessService) {
         this.leadImportService = leadImportService;
+        this.leadAccessService = leadAccessService;
     }
 
     /**
@@ -117,7 +120,10 @@ public class LeadImportResource {
     @PostMapping("/sample")
     public Mono<ResponseEntity<LeadImportResultDTO>> importSample() {
         LOG.info("REST request to trigger seed sample data ingestion");
-        return leadImportService.importSampleData()
+        // Seeding demo data into the live CRM is an administrator action
+        return leadAccessService
+            .requireAdmin()
+            .then(Mono.defer(() -> leadImportService.importSampleData()))
             .map(ResponseEntity::ok);
     }
 }

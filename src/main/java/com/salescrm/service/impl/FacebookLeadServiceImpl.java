@@ -438,8 +438,6 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                     pref.setBudgetRange(row.getCgpaOrPercentage().trim());
                 }
 
-                pref.setMattressType(row.getMattressType());
-                pref.setMattressSize(row.getMattressSize());
                 if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) {
                     pref.setBudgetRange(row.getPreferredBudget());
                 }

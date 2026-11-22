@@ -43,11 +43,11 @@ import reactor.core.publisher.Flux;
 @WithMockUser
 class LeadPreferenceResourceIT {
 
-    private static final String DEFAULT_MATTRESS_TYPE = "AAAAAAAAAA";
-    private static final String UPDATED_MATTRESS_TYPE = "BBBBBBBBBB";
+    private static final String DEFAULT_PAYMENT_STATUS = "AAAAAAAAAA";
+    private static final String UPDATED_PAYMENT_STATUS = "BBBBBBBBBB";
 
-    private static final String DEFAULT_MATTRESS_SIZE = "AAAAAAAAAA";
-    private static final String UPDATED_MATTRESS_SIZE = "BBBBBBBBBB";
+    private static final String DEFAULT_PAYMENT_DETAILS = "AAAAAAAAAA";
+    private static final String UPDATED_PAYMENT_DETAILS = "BBBBBBBBBB";
 
     private static final String DEFAULT_BUDGET_RANGE = "AAAAAAAAAA";
     private static final String UPDATED_BUDGET_RANGE = "BBBBBBBBBB";
@@ -97,8 +97,8 @@ class LeadPreferenceResourceIT {
      */
     public static LeadPreference createEntity() {
         return new LeadPreference()
-            .mattressType(DEFAULT_MATTRESS_TYPE)
-            .mattressSize(DEFAULT_MATTRESS_SIZE)
+            .paymentStatus(DEFAULT_PAYMENT_STATUS)
+            .paymentDetails(DEFAULT_PAYMENT_DETAILS)
             .budgetRange(DEFAULT_BUDGET_RANGE)
             .purchaseTimeline(DEFAULT_PURCHASE_TIMELINE)
             .createdAt(DEFAULT_CREATED_AT);
@@ -112,8 +112,8 @@ class LeadPreferenceResourceIT {
      */
     public static LeadPreference createUpdatedEntity() {
         return new LeadPreference()
-            .mattressType(UPDATED_MATTRESS_TYPE)
-            .mattressSize(UPDATED_MATTRESS_SIZE)
+            .paymentStatus(UPDATED_PAYMENT_STATUS)
+            .paymentDetails(UPDATED_PAYMENT_DETAILS)
             .budgetRange(UPDATED_BUDGET_RANGE)
             .purchaseTimeline(UPDATED_PURCHASE_TIMELINE)
             .createdAt(UPDATED_CREATED_AT);
@@ -236,10 +236,10 @@ class LeadPreferenceResourceIT {
             .expectBody()
             .jsonPath("$.[*].id")
             .value(hasItem(leadPreference.getId().intValue()))
-            .jsonPath("$.[*].mattressType")
-            .value(hasItem(DEFAULT_MATTRESS_TYPE))
-            .jsonPath("$.[*].mattressSize")
-            .value(hasItem(DEFAULT_MATTRESS_SIZE))
+            .jsonPath("$.[*].paymentStatus")
+            .value(hasItem(DEFAULT_PAYMENT_STATUS))
+            .jsonPath("$.[*].paymentDetails")
+            .value(hasItem(DEFAULT_PAYMENT_DETAILS))
             .jsonPath("$.[*].budgetRange")
             .value(hasItem(DEFAULT_BUDGET_RANGE))
             .jsonPath("$.[*].purchaseTimeline")
@@ -283,10 +283,10 @@ class LeadPreferenceResourceIT {
             .expectBody()
             .jsonPath("$.id")
             .value(is(leadPreference.getId().intValue()))
-            .jsonPath("$.mattressType")
-            .value(is(DEFAULT_MATTRESS_TYPE))
-            .jsonPath("$.mattressSize")
-            .value(is(DEFAULT_MATTRESS_SIZE))
+            .jsonPath("$.paymentStatus")
+            .value(is(DEFAULT_PAYMENT_STATUS))
+            .jsonPath("$.paymentDetails")
+            .value(is(DEFAULT_PAYMENT_DETAILS))
             .jsonPath("$.budgetRange")
             .value(is(DEFAULT_BUDGET_RANGE))
             .jsonPath("$.purchaseTimeline")
@@ -317,8 +317,8 @@ class LeadPreferenceResourceIT {
         // Update the leadPreference
         LeadPreference updatedLeadPreference = leadPreferenceRepository.findById(leadPreference.getId()).block();
         updatedLeadPreference
-            .mattressType(UPDATED_MATTRESS_TYPE)
-            .mattressSize(UPDATED_MATTRESS_SIZE)
+            .paymentStatus(UPDATED_PAYMENT_STATUS)
+            .paymentDetails(UPDATED_PAYMENT_DETAILS)
             .budgetRange(UPDATED_BUDGET_RANGE)
             .purchaseTimeline(UPDATED_PURCHASE_TIMELINE)
             .createdAt(UPDATED_CREATED_AT);
@@ -416,8 +416,8 @@ class LeadPreferenceResourceIT {
         partialUpdatedLeadPreference.setId(leadPreference.getId());
 
         partialUpdatedLeadPreference
-            .mattressType(UPDATED_MATTRESS_TYPE)
-            .mattressSize(UPDATED_MATTRESS_SIZE)
+            .paymentStatus(UPDATED_PAYMENT_STATUS)
+            .paymentDetails(UPDATED_PAYMENT_DETAILS)
             .budgetRange(UPDATED_BUDGET_RANGE)
             .purchaseTimeline(UPDATED_PURCHASE_TIMELINE);
 
@@ -451,8 +451,8 @@ class LeadPreferenceResourceIT {
         partialUpdatedLeadPreference.setId(leadPreference.getId());
 
         partialUpdatedLeadPreference
-            .mattressType(UPDATED_MATTRESS_TYPE)
-            .mattressSize(UPDATED_MATTRESS_SIZE)
+            .paymentStatus(UPDATED_PAYMENT_STATUS)
+            .paymentDetails(UPDATED_PAYMENT_DETAILS)
             .budgetRange(UPDATED_BUDGET_RANGE)
             .purchaseTimeline(UPDATED_PURCHASE_TIMELINE)
             .createdAt(UPDATED_CREATED_AT);

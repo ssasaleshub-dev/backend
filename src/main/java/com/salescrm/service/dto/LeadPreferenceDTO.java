@@ -1,5 +1,6 @@
 package com.salescrm.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
@@ -12,17 +13,17 @@ public class LeadPreferenceDTO implements Serializable {
 
     private Long id;
 
-    private String mattressType;
-
-    private String mattressSize;
-
     private String budgetRange;
 
     private String purchaseTimeline;
 
     // Financial & Payment Aliases
     private String clientBudget;
+    // "mattressType" / "mattressSize" are accepted so app versions released before the rename keep working
+    @JsonAlias("mattressType")
     private String paymentStatus;
+
+    @JsonAlias("mattressSize")
     private String paymentDetails;
 
     private String visaType;
@@ -43,22 +44,6 @@ public class LeadPreferenceDTO implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public String getMattressType() {
-        return mattressType;
-    }
-
-    public void setMattressType(String mattressType) {
-        this.mattressType = mattressType;
-    }
-
-    public String getMattressSize() {
-        return mattressSize;
-    }
-
-    public void setMattressSize(String mattressSize) {
-        this.mattressSize = mattressSize;
     }
 
     public String getBudgetRange() {
@@ -84,25 +69,19 @@ public class LeadPreferenceDTO implements Serializable {
     }
 
     public String getPaymentStatus() {
-        return paymentStatus != null ? paymentStatus : mattressType;
+        return paymentStatus;
     }
 
     public void setPaymentStatus(String paymentStatus) {
         this.paymentStatus = paymentStatus;
-        if (paymentStatus != null) {
-            this.mattressType = paymentStatus;
-        }
     }
 
     public String getPaymentDetails() {
-        return paymentDetails != null ? paymentDetails : mattressSize;
+        return paymentDetails;
     }
 
     public void setPaymentDetails(String paymentDetails) {
         this.paymentDetails = paymentDetails;
-        if (paymentDetails != null) {
-            this.mattressSize = paymentDetails;
-        }
     }
 
     public String getPurchaseTimeline() {
@@ -211,8 +190,8 @@ public class LeadPreferenceDTO implements Serializable {
     public String toString() {
         return "LeadPreferenceDTO{" +
             "id=" + getId() +
-            ", mattressType='" + getMattressType() + "'" +
-            ", mattressSize='" + getMattressSize() + "'" +
+            ", paymentStatus='" + getPaymentStatus() + "'" +
+            ", paymentDetails='" + getPaymentDetails() + "'" +
             ", budgetRange='" + getBudgetRange() + "'" +
             ", purchaseTimeline='" + getPurchaseTimeline() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +

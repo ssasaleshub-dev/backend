@@ -431,8 +431,6 @@ public class LeadImportServiceImpl implements LeadImportService {
                 }
 
                 // Legacy fields
-                if (row.getMattressType() != null && !row.getMattressType().isBlank()) existing.setMattressType(row.getMattressType());
-                if (row.getMattressSize() != null && !row.getMattressSize().isBlank()) existing.setMattressSize(row.getMattressSize());
                 if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) existing.setBudgetRange(row.getPreferredBudget());
                 if (row.getPlanningToBuy() != null && !row.getPlanningToBuy().isBlank()) existing.setPurchaseTimeline(row.getPlanningToBuy());
                 return leadPreferenceRepository.save(existing).thenReturn(lead);
@@ -453,8 +451,6 @@ public class LeadImportServiceImpl implements LeadImportService {
                 }
 
                 // Legacy fields
-                pref.setMattressType(row.getMattressType());
-                pref.setMattressSize(row.getMattressSize());
                 if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) {
                     pref.setBudgetRange(row.getPreferredBudget());
                 }

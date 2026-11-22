@@ -84,8 +84,8 @@ entity Lead {
 }
 
 entity LeadPreference {
-  mattressType String
-  mattressSize String
+  paymentStatus String
+  paymentDetails String
   budgetRange String
   purchaseTimeline String
   createdAt Instant

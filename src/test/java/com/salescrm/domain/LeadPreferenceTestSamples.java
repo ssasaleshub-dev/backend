@@ -12,8 +12,8 @@ public class LeadPreferenceTestSamples {
     public static LeadPreference getLeadPreferenceSample1() {
         return new LeadPreference()
             .id(1L)
-            .mattressType("mattressType1")
-            .mattressSize("mattressSize1")
+            .paymentStatus("paymentStatus1")
+            .paymentDetails("paymentDetails1")
             .budgetRange("budgetRange1")
             .purchaseTimeline("purchaseTimeline1");
     }
@@ -21,8 +21,8 @@ public class LeadPreferenceTestSamples {
     public static LeadPreference getLeadPreferenceSample2() {
         return new LeadPreference()
             .id(2L)
-            .mattressType("mattressType2")
-            .mattressSize("mattressSize2")
+            .paymentStatus("paymentStatus2")
+            .paymentDetails("paymentDetails2")
             .budgetRange("budgetRange2")
             .purchaseTimeline("purchaseTimeline2");
     }
@@ -30,8 +30,8 @@ public class LeadPreferenceTestSamples {
     public static LeadPreference getLeadPreferenceRandomSampleGenerator() {
         return new LeadPreference()
             .id(longCount.incrementAndGet())
-            .mattressType(UUID.randomUUID().toString())
-            .mattressSize(UUID.randomUUID().toString())
+            .paymentStatus(UUID.randomUUID().toString())
+            .paymentDetails(UUID.randomUUID().toString())
             .budgetRange(UUID.randomUUID().toString())
             .purchaseTimeline(UUID.randomUUID().toString());
     }

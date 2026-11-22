@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
@@ -30,16 +31,31 @@ public class NotificationWebSocketHandler implements WebSocketHandler {
     private final ObjectMapper objectMapper;
     private final Map<String, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
     private final Map<String, String> sessionUsers = new ConcurrentHashMap<>();
+    private final WebSocketAuthenticator authenticator;
 
-    public NotificationWebSocketHandler(CrmNotificationService crmNotificationService, ObjectMapper objectMapper) {
+    public NotificationWebSocketHandler(
+        CrmNotificationService crmNotificationService,
+        ObjectMapper objectMapper,
+        WebSocketAuthenticator authenticator
+    ) {
         this.crmNotificationService = crmNotificationService;
         this.objectMapper = objectMapper;
+        this.authenticator = authenticator;
     }
 
     @Override
     public Mono<Void> handle(WebSocketSession session) {
+        // Only authenticated users may connect; each receives only their own notifications
+        return authenticator
+            .authenticate(session)
+            .flatMap(user -> handleAuthenticated(session, user))
+            .switchIfEmpty(Mono.defer(() -> session.close(CloseStatus.POLICY_VIOLATION.withReason("Authentication required"))));
+    }
+
+    private Mono<Void> handleAuthenticated(WebSocketSession session, WebSocketAuthenticator.SocketUser user) {
         String sessionId = session.getId();
         activeSessions.put(sessionId, session);
+        sessionUsers.put(sessionId, user.login());
         LOG.info("[NotificationWebSocket] Client connected: sessionId={}, total active={}", sessionId, activeSessions.size());
 
         // Send initial CONNECTED frame
@@ -56,6 +72,7 @@ public class NotificationWebSocketHandler implements WebSocketHandler {
 
         // Outgoing stream: broadcast live notifications from crmNotificationService
         Flux<WebSocketMessage> outgoingFlux = crmNotificationService.getLiveNotificationStream()
+            .filter(notif -> user.isTarget(notif.getUserId()))
             .flatMap(notif -> {
                 try {
                     Map<String, Object> frame = createNotificationFrame(notif);
@@ -76,14 +93,8 @@ public class NotificationWebSocketHandler implements WebSocketHandler {
                     Map<String, Object> frame = objectMapper.readValue(payload, Map.class);
                     String event = (String) frame.get("event");
                     if ("AUTHENTICATE".equalsIgnoreCase(event)) {
-                        Object payloadObj = frame.get("payload");
-                        if (payloadObj instanceof Map<?, ?> userMap) {
-                            String userLogin = (String) userMap.get("userLogin");
-                            if (userLogin != null) {
-                                sessionUsers.put(sessionId, userLogin.toLowerCase().trim());
-                                LOG.info("[NotificationWebSocket] Session {} authenticated as user: {}", sessionId, userLogin);
-                            }
-                        }
+                        // Identity comes from the verified token; client-claimed logins are ignored
+                        LOG.debug("[NotificationWebSocket] Session {} already authenticated as {}", sessionId, user.login());
                     }
                 } catch (Exception e) {
                     LOG.debug("[NotificationWebSocket] Frame parse notice: {}", e.getMessage());

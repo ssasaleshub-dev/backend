@@ -21,11 +21,11 @@ public class LeadPreference implements Serializable {
     @Column("id")
     private Long id;
 
-    @Column("mattress_type")
-    private String mattressType;
+    @Column("payment_status")
+    private String paymentStatus;
 
-    @Column("mattress_size")
-    private String mattressSize;
+    @Column("payment_details")
+    private String paymentDetails;
 
     @Column("budget_range")
     private String budgetRange;
@@ -78,30 +78,30 @@ public class LeadPreference implements Serializable {
         this.id = id;
     }
 
-    public String getMattressType() {
-        return this.mattressType;
+    public String getPaymentStatus() {
+        return this.paymentStatus;
     }
 
-    public LeadPreference mattressType(String mattressType) {
-        this.setMattressType(mattressType);
+    public LeadPreference paymentStatus(String paymentStatus) {
+        this.setPaymentStatus(paymentStatus);
         return this;
     }
 
-    public void setMattressType(String mattressType) {
-        this.mattressType = mattressType;
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
-    public String getMattressSize() {
-        return this.mattressSize;
+    public String getPaymentDetails() {
+        return this.paymentDetails;
     }
 
-    public LeadPreference mattressSize(String mattressSize) {
-        this.setMattressSize(mattressSize);
+    public LeadPreference paymentDetails(String paymentDetails) {
+        this.setPaymentDetails(paymentDetails);
         return this;
     }
 
-    public void setMattressSize(String mattressSize) {
-        this.mattressSize = mattressSize;
+    public void setPaymentDetails(String paymentDetails) {
+        this.paymentDetails = paymentDetails;
     }
 
     public String getBudgetRange() {
@@ -280,8 +280,8 @@ public class LeadPreference implements Serializable {
     public String toString() {
         return "LeadPreference{" +
             "id=" + getId() +
-            ", mattressType='" + getMattressType() + "'" +
-            ", mattressSize='" + getMattressSize() + "'" +
+            ", paymentStatus='" + getPaymentStatus() + "'" +
+            ", paymentDetails='" + getPaymentDetails() + "'" +
             ", budgetRange='" + getBudgetRange() + "'" +
             ", purchaseTimeline='" + getPurchaseTimeline() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +

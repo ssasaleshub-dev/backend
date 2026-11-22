@@ -57,9 +57,9 @@ public class LeadAnalyticsServiceImpl implements LeadAnalyticsService {
                     .filter(l -> l.getAssignedTo() != null && !l.getAssignedTo().isBlank())
                     .collect(Collectors.groupingBy(LeadDetailedDTO::getAssignedTo, Collectors.counting())));
 
-                dto.setLeadsByMattressSize(leads.stream()
-                    .filter(l -> l.getMattressSize() != null && !l.getMattressSize().isBlank())
-                    .collect(Collectors.groupingBy(l -> l.getMattressSize().toLowerCase().trim(), Collectors.counting())));
+                dto.setLeadsByPaymentStatus(leads.stream()
+                    .filter(l -> l.getPaymentStatus() != null && !l.getPaymentStatus().isBlank())
+                    .collect(Collectors.groupingBy(l -> l.getPaymentStatus().toUpperCase().trim(), Collectors.counting())));
 
                 dto.setLeadsByBudget(leads.stream()
                     .filter(l -> l.getBudgetRange() != null && !l.getBudgetRange().isBlank())

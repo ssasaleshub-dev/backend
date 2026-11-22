@@ -47,8 +47,8 @@ public class LeadPreferenceAsserts {
     public static void assertLeadPreferenceUpdatableFieldsEquals(LeadPreference expected, LeadPreference actual) {
         assertThat(actual)
             .as("Verify LeadPreference relevant properties")
-            .satisfies(a -> assertThat(a.getMattressType()).as("check mattressType").isEqualTo(expected.getMattressType()))
-            .satisfies(a -> assertThat(a.getMattressSize()).as("check mattressSize").isEqualTo(expected.getMattressSize()))
+            .satisfies(a -> assertThat(a.getPaymentStatus()).as("check paymentStatus").isEqualTo(expected.getPaymentStatus()))
+            .satisfies(a -> assertThat(a.getPaymentDetails()).as("check paymentDetails").isEqualTo(expected.getPaymentDetails()))
             .satisfies(a -> assertThat(a.getBudgetRange()).as("check budgetRange").isEqualTo(expected.getBudgetRange()))
             .satisfies(a -> assertThat(a.getPurchaseTimeline()).as("check purchaseTimeline").isEqualTo(expected.getPurchaseTimeline()))
             .satisfies(a -> assertThat(a.getCreatedAt()).as("check createdAt").isEqualTo(expected.getCreatedAt()));
