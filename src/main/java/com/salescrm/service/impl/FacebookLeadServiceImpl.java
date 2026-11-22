@@ -357,17 +357,35 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         }
 
         return leadFormRepository.findByExternalId(extId)
-            .switchIfEmpty(Mono.defer(() -> {
-                LeadForm form = new LeadForm();
-                form.setExternalId(extId);
-                String name = (row.getFormName() != null && !row.getFormName().isBlank())
-                    ? row.getFormName().trim()
-                    : "Instant Form " + extId;
-                form.setName(name);
-                form.setStatus("ACTIVE");
-                form.setCreatedAt(createdTime != null ? createdTime : Instant.now());
-                return leadFormRepository.save(form);
-            }));
+            .flatMap(existing -> {
+                // Replace an old placeholder ("Instant Form 123...") with the form's real name
+                String current = existing.getName();
+                if (current == null || current.isBlank() || current.startsWith("Instant Form ")) {
+                    return graphApiClient.getFormName(extId)
+                        .flatMap(realName -> {
+                            existing.setName(realName);
+                            return leadFormRepository.save(existing);
+                        })
+                        .defaultIfEmpty(existing);
+                }
+                return Mono.just(existing);
+            })
+            .switchIfEmpty(Mono.defer(() ->
+                graphApiClient.getFormName(extId)
+                    .defaultIfEmpty(
+                        (row.getFormName() != null && !row.getFormName().isBlank() && !row.getFormName().startsWith("Instant Form "))
+                            ? row.getFormName().trim()
+                            : "Instant Form " + extId
+                    )
+                    .flatMap(name -> {
+                        LeadForm form = new LeadForm();
+                        form.setExternalId(extId);
+                        form.setName(name);
+                        form.setStatus("ACTIVE");
+                        form.setCreatedAt(createdTime != null ? createdTime : Instant.now());
+                        return leadFormRepository.save(form);
+                    })
+            ));
     }
 
     private Mono<Lead> saveLead(
@@ -380,7 +398,10 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     ) {
         PlatformType platform = parsePlatform(row.getPlatform());
         LeadStatus status = LeadStatus.CREATED;
-        boolean isOrganic = "true".equalsIgnoreCase(row.getIsOrganic());
+        // Meta always sends is_organic explicitly for a real webhook/Graph API lead; a blank/missing
+        // value here means the field truly was not reported, not that it is confirmed non-organic.
+        // Leave it null rather than silently defaulting to false ("confirmed paid").
+        Boolean isOrganic = parseTriStateBoolean(row.getIsOrganic());
 
         StringBuilder notesBuilder = new StringBuilder("Captured via Meta Lead Ads Webhook");
         if (pageId != null && !pageId.isBlank()) {
@@ -399,6 +420,9 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         newLead.setExternalId(row.getId());
         newLead.setCreatedTime(createdTime != null ? createdTime : Instant.now());
         newLead.setIsOrganic(isOrganic);
+        newLead.setMetaPageId(pageId);
+        newLead.setMetaFormResponses(row.getMetaFormResponses());
+        newLead.setMetaRawPayload(row.getMetaRawPayload());
         newLead.setPlatform(platform);
         newLead.setStatus(status);
         newLead.setNotes(notes);
@@ -473,6 +497,25 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 activity -> LOG.debug("Logged lead activity {} for lead ID {}", activity.getId(), lead.getId()),
                 err -> LOG.warn("Failed to log lead activity for lead ID {}: {}", lead.getId(), err.getMessage())
             );
+    }
+
+    /**
+     * Parses a true/false signal that genuinely distinguishes "known true", "known false", and
+     * "not reported" — unlike {@code Boolean.parseBoolean}, which collapses anything that isn't
+     * exactly "true" into false, silently turning "unknown" into "confirmed false".
+     */
+    private Boolean parseTriStateBoolean(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String r = raw.trim().toLowerCase();
+        if (r.equals("true") || r.equals("1") || r.equals("yes")) {
+            return Boolean.TRUE;
+        }
+        if (r.equals("false") || r.equals("0") || r.equals("no")) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
     private PlatformType parsePlatform(String raw) {

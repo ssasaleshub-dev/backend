@@ -36,6 +36,9 @@ public class LeadRowMapper implements BiFunction<Row, String, Lead> {
         entity.setNotes(converter.fromRow(row, prefix + "_notes", String.class));
         entity.setCreatedAt(converter.fromRow(row, prefix + "_created_at", Instant.class));
         entity.setUpdatedAt(converter.fromRow(row, prefix + "_updated_at", Instant.class));
+        entity.setMetaPageId(converter.fromRow(row, prefix + "_meta_page_id", String.class));
+        entity.setMetaFormResponses(converter.fromRow(row, prefix + "_meta_form_responses", String.class));
+        entity.setMetaRawPayload(converter.fromRow(row, prefix + "_meta_raw_payload", String.class));
         entity.setCustomerId(converter.fromRow(row, prefix + "_customer_id", Long.class));
         entity.setAdId(converter.fromRow(row, prefix + "_ad_id", Long.class));
         entity.setLeadFormId(converter.fromRow(row, prefix + "_lead_form_id", Long.class));

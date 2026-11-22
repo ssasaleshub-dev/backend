@@ -1,5 +1,6 @@
 package com.salescrm.service.dto.facebook;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
@@ -50,6 +51,20 @@ public class FacebookLeadGraphResponseDTO implements Serializable {
 
     @JsonProperty("field_data")
     private List<FacebookFieldDataDTO> fieldData = new ArrayList<>();
+
+    /** The exact JSON Meta returned, kept for storage/audit. Not part of the API contract. */
+    @JsonIgnore
+    private transient String rawJson;
+
+    @JsonIgnore
+    public String getRawJson() {
+        return rawJson;
+    }
+
+    @JsonIgnore
+    public void setRawJson(String rawJson) {
+        this.rawJson = rawJson;
+    }
 
     public FacebookLeadGraphResponseDTO() {}
 

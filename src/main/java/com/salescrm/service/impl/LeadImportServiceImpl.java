@@ -342,7 +342,9 @@ public class LeadImportServiceImpl implements LeadImportService {
     ) {
         PlatformType platform = parsePlatform(row.getPlatform());
         LeadStatus status = parseStatus(row.getLeadStatus());
-        boolean isOrganic = parseOrganic(row.getIsOrganic());
+        // A blank/missing is_organic column means the spreadsheet simply didn't say — leave it
+        // null (unknown) rather than silently recording "confirmed paid ad".
+        Boolean isOrganic = parseOrganic(row.getIsOrganic());
 
         String campaignDesc = (row.getCampaignName() != null && !row.getCampaignName().isBlank())
             ? row.getCampaignName().trim()
@@ -378,6 +380,9 @@ public class LeadImportServiceImpl implements LeadImportService {
                 if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
                     existing.setNotes(formattedNotes);
                 }
+                if ((existing.getMetaFormResponses() == null || existing.getMetaFormResponses().isBlank()) && row.getMetaFormResponses() != null) {
+                    existing.setMetaFormResponses(row.getMetaFormResponses());
+                }
                 return leadRepository.save(existing);
             })
             .switchIfEmpty(Mono.defer(() -> {
@@ -388,6 +393,7 @@ public class LeadImportServiceImpl implements LeadImportService {
                 newLead.setPlatform(platform);
                 newLead.setStatus(status);
                 newLead.setNotes(formattedNotes);
+                newLead.setMetaFormResponses(row.getMetaFormResponses());
                 newLead.setCreatedAt(createdTime != null ? createdTime : Instant.now());
                 newLead.setUpdatedAt(createdTime != null ? createdTime : Instant.now());
 
@@ -461,21 +467,7 @@ public class LeadImportServiceImpl implements LeadImportService {
     }
 
     private String mapEducationalQualification(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        String lower = raw.trim().toLowerCase();
-        String norm = lower.replace("-", " ").replace("_", " ");
-        if (norm.contains("completed ug") || norm.contains("bachelor") || norm.contains("graduate")) {
-            return "Bachelor Degree / UG Graduate";
-        }
-        if (norm.contains("final year") || norm.contains("finallyear")) {
-            return "Final Year UG Student";
-        }
-        if (norm.contains("other")) {
-            return "Other";
-        }
-        return raw.trim();
+        return com.salescrm.service.util.MetaLeadDataUtil.mapEducationalQualification(raw);
     }
 
     private PlatformType parsePlatform(String raw) {
@@ -531,12 +523,18 @@ public class LeadImportServiceImpl implements LeadImportService {
         }
     }
 
-    private boolean parseOrganic(String raw) {
-        if (raw == null) {
-            return false;
+    private Boolean parseOrganic(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
         }
         String r = raw.trim().toLowerCase();
-        return r.equals("true") || r.equals("1") || r.equals("yes");
+        if (r.equals("true") || r.equals("1") || r.equals("yes")) {
+            return Boolean.TRUE;
+        }
+        if (r.equals("false") || r.equals("0") || r.equals("no")) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
     private static class RowProcessResult {

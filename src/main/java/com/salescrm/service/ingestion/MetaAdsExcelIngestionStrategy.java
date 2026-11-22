@@ -74,6 +74,14 @@ public class MetaAdsExcelIngestionStrategy implements LeadIngestionStrategy {
                 ExcelLeadRowDTO dto = new ExcelLeadRowDTO();
                 dto.setRowNumber(r + 1);
 
+                // Keep every answer column, not only the ones mapped below
+                final Row currentRow = row;
+                dto.setMetaFormResponses(
+                    com.salescrm.service.util.MetaLeadDataUtil.formResponsesFromRow(headerMap, idx -> {
+                        Cell cell = currentRow.getCell(idx);
+                        return cell != null ? dataFormatter.formatCellValue(cell).trim() : null;
+                    })
+                );
                 dto.setId(getCellValue(row, headerMap, "id", "lead_id"));
                 dto.setCreatedTime(getCellValue(row, headerMap, "created_time", "created_at", "time", "date"));
                 dto.setAdId(getCellValue(row, headerMap, "ad_id", "ad id"));

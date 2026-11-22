@@ -1,5 +1,6 @@
 package com.salescrm.service.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salescrm.config.FacebookProperties;
 import com.salescrm.service.dto.facebook.FacebookLeadGraphResponseDTO;
 import java.time.Duration;
@@ -25,6 +26,11 @@ public class FacebookGraphApiClient {
 
     private final WebClient webClient;
     private final FacebookProperties facebookProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Forms whose name lookup failed recently: don't ask Meta again for every new lead. */
+    private final java.util.concurrent.ConcurrentHashMap<String, java.time.Instant> formNameFailures = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Duration FORM_NAME_RETRY_AFTER = Duration.ofHours(6);
 
     public FacebookGraphApiClient(FacebookProperties facebookProperties, WebClient.Builder webClientBuilder) {
         this.facebookProperties = facebookProperties;
@@ -101,7 +107,9 @@ public class FacebookGraphApiClient {
                         ));
                     })
             )
-            .bodyToMono(FacebookLeadGraphResponseDTO.class)
+            .bodyToMono(String.class)
+            .timeout(Duration.ofSeconds(20))
+            .map(this::parseLeadResponse)
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
                 .filter(this::isTransientError)
                 .doBeforeRetry(retrySignal ->
@@ -111,6 +119,53 @@ public class FacebookGraphApiClient {
             )
             .doOnSuccess(resp -> LOG.info("Successfully retrieved lead details from Meta for lead ID: {}", leadgenId))
             .doOnError(err -> LOG.error("Failed to retrieve lead details from Meta for lead {}: {}", leadgenId, err.getMessage()));
+    }
+
+    /** Parses the Graph response and keeps the raw JSON so nothing Meta sent is lost. */
+    private FacebookLeadGraphResponseDTO parseLeadResponse(String body) {
+        try {
+            FacebookLeadGraphResponseDTO dto = objectMapper.readValue(body, FacebookLeadGraphResponseDTO.class);
+            dto.setRawJson(body);
+            return dto;
+        } catch (Exception e) {
+            // Not retryable: the same body would fail again
+            throw new IllegalStateException("Unreadable Meta Graph API lead response", e);
+        }
+    }
+
+    /**
+     * Looks up an Instant Form's real name (GET /{version}/{formId}?fields=name). Best effort:
+     * completes empty on any error so lead ingestion never fails because of it.
+     */
+    public Mono<String> getFormName(String formId) {
+        String accessToken = facebookProperties.getPageAccessToken();
+        if (formId == null || formId.isBlank() || accessToken == null || accessToken.isBlank()) {
+            return Mono.empty();
+        }
+        java.time.Instant lastFailure = formNameFailures.get(formId);
+        if (lastFailure != null && lastFailure.plus(FORM_NAME_RETRY_AFTER).isAfter(java.time.Instant.now())) {
+            return Mono.empty();
+        }
+        String path = String.format("/%s/%s", facebookProperties.getGraphApiVersion(), formId);
+        return webClient.get()
+            .uri(uriBuilder -> uriBuilder.path(path).queryParam("fields", "name").queryParam("access_token", accessToken).build())
+            .retrieve()
+            .bodyToMono(String.class)
+            .timeout(Duration.ofSeconds(10))
+            .flatMap(body -> {
+                try {
+                    String name = objectMapper.readTree(body).path("name").asText(null);
+                    return name != null && !name.isBlank() ? Mono.just(name.trim()) : Mono.<String>empty();
+                } catch (Exception e) {
+                    return Mono.<String>empty();
+                }
+            })
+            .doOnNext(name -> formNameFailures.remove(formId))
+            .onErrorResume(err -> {
+                formNameFailures.put(formId, java.time.Instant.now());
+                LOG.warn("Could not look up Meta form name for form {} (will retry after {}): {}", formId, FORM_NAME_RETRY_AFTER, sanitizeError(err.getMessage()));
+                return Mono.empty();
+            });
     }
 
     private boolean isTransientError(Throwable throwable) {

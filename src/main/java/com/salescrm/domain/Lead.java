@@ -54,6 +54,18 @@ public class Lead implements Serializable {
     @Column("updated_at")
     private Instant updatedAt;
 
+    /** Facebook Page the lead form belongs to. */
+    @Column("meta_page_id")
+    private String metaPageId;
+
+    /** Every Instant Form question/answer as JSON: [{"key","label","value"}]. */
+    @Column("meta_form_responses")
+    private String metaFormResponses;
+
+    /** Full Meta Graph API response for this lead (audit / re-processing). */
+    @Column("meta_raw_payload")
+    private String metaRawPayload;
+
     @org.springframework.data.annotation.Transient
     private Customer customer;
 
@@ -77,6 +89,30 @@ public class Lead implements Serializable {
     private Long leadFormId;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
+
+    public String getMetaPageId() {
+        return this.metaPageId;
+    }
+
+    public void setMetaPageId(String metaPageId) {
+        this.metaPageId = metaPageId;
+    }
+
+    public String getMetaFormResponses() {
+        return this.metaFormResponses;
+    }
+
+    public void setMetaFormResponses(String metaFormResponses) {
+        this.metaFormResponses = metaFormResponses;
+    }
+
+    public String getMetaRawPayload() {
+        return this.metaRawPayload;
+    }
+
+    public void setMetaRawPayload(String metaRawPayload) {
+        this.metaRawPayload = metaRawPayload;
+    }
 
     public Long getId() {
         return this.id;

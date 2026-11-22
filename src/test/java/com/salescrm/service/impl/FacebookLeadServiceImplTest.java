@@ -150,6 +150,7 @@ class FacebookLeadServiceImplTest {
         when(adRepository.save(any(Ad.class))).thenReturn(Mono.just(savedAd));
 
         when(leadFormRepository.findByExternalId("f_401")).thenReturn(Mono.empty());
+        when(graphApiClient.getFormName("f_401")).thenReturn(Mono.just("Work Visa Enquiry Form"));
         LeadForm savedLeadForm = new LeadForm();
         savedLeadForm.setId(40L);
         when(leadFormRepository.save(any(LeadForm.class))).thenReturn(Mono.just(savedLeadForm));
@@ -166,6 +167,7 @@ class FacebookLeadServiceImplTest {
         // Mock LeadPreference
         when(leadPreferenceRepository.findOneByLeadId(500L)).thenReturn(Mono.empty());
         when(leadPreferenceRepository.save(any(LeadPreference.class))).thenReturn(Mono.just(new LeadPreference()));
+        when(leadActivityService.logActivity(any())).thenReturn(Mono.empty());
 
         Lead result = service.processLead(leadgenId, "page_123", "ad_301", "f_401").block();
 
@@ -175,5 +177,9 @@ class FacebookLeadServiceImplTest {
 
         verify(leadRepository).save(any(Lead.class));
         verify(customerRepository).save(any(Customer.class));
+        // The form is saved under its real Meta name, not an "Instant Form <id>" placeholder
+        verify(leadFormRepository).save(org.mockito.ArgumentMatchers.argThat(form -> "Work Visa Enquiry Form".equals(form.getName())));
+        // Page ID and the raw form answers are kept on the lead
+        verify(leadRepository).save(org.mockito.ArgumentMatchers.argThat(lead -> "page_123".equals(lead.getMetaPageId())));
     }
 }

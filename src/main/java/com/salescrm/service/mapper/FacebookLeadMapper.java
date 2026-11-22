@@ -3,6 +3,7 @@ package com.salescrm.service.mapper;
 import com.salescrm.service.dto.ExcelLeadRowDTO;
 import com.salescrm.service.dto.facebook.FacebookFieldDataDTO;
 import com.salescrm.service.dto.facebook.FacebookLeadGraphResponseDTO;
+import com.salescrm.service.util.MetaLeadDataUtil;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -91,6 +92,10 @@ public class FacebookLeadMapper {
         dto.setAge(getFirstMatching(fieldMap, "age", "what_is_your_age"));
         dto.setEducationalQualification(getFirstMatching(fieldMap, "educational_qualification", "education", "qualification", "highest_qualification"));
         dto.setCurrentStatus(getFirstMatching(fieldMap, "what_is_your_current_status", "current_status", "status"));
+        // Same rule as the Excel import: the "current status" answer is the candidate's qualification
+        if (dto.getEducationalQualification() == null || dto.getEducationalQualification().isBlank()) {
+            dto.setEducationalQualification(MetaLeadDataUtil.mapEducationalQualification(dto.getCurrentStatus()));
+        }
         dto.setCgpaOrPercentage(getFirstMatching(fieldMap, "what_is_your_ug_cgpa_or_percentage", "ug_cgpa", "cgpa", "percentage"));
         dto.setAreYouInterested(getFirstMatching(fieldMap, "are_you_interested_in_visa", "are_you_interested", "are_you_looking"));
         dto.setAreYouWorking(getFirstMatching(fieldMap, "are_you_currently_working", "are_you_working"));
@@ -99,6 +104,10 @@ public class FacebookLeadMapper {
         // Product survey custom questions
         dto.setPreferredBudget(getFirstMatching(fieldMap, "what_is_your_preferred_budget", "preferred_budget", "budget"));
         dto.setPlanningToBuy(getFirstMatching(fieldMap, "when_are_you_planning_to_buy", "planning_to_buy", "timeline"));
+
+        // Keep every answer and the raw response, not just the fields mapped above
+        dto.setMetaFormResponses(MetaLeadDataUtil.toFormResponsesJson(graphResponse.getFieldData()));
+        dto.setMetaRawPayload(graphResponse.getRawJson());
 
         LOG.debug("Mapped Meta lead {} for customer '{}' ({})", dto.getId(), dto.getFullName(), dto.getPhoneNumber());
         return dto;

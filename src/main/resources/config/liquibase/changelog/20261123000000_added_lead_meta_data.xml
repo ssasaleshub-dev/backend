@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Keep everything Meta sends for a lead instead of only the fields we map:
+        - meta_page_id: the Facebook Page the lead form belongs to
+        - meta_form_responses: every question/answer from the Instant Form, as JSON
+          [{"key":"what_is_your_current_status","label":"What is your current status","value":"completed_ug"}, ...]
+        - meta_raw_payload: the full Graph API response, for audit and re-processing
+    -->
+    <changeSet id="20261123000000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="lead" columnName="meta_page_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="lead">
+            <column name="meta_page_id" type="varchar(100)"/>
+            <column name="meta_form_responses" type="text"/>
+            <column name="meta_raw_payload" type="text"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

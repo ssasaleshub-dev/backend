@@ -19,6 +19,9 @@ public class LeadSqlHelper {
         columns.add(Column.aliased("notes", table, columnPrefix + "_notes"));
         columns.add(Column.aliased("created_at", table, columnPrefix + "_created_at"));
         columns.add(Column.aliased("updated_at", table, columnPrefix + "_updated_at"));
+        columns.add(Column.aliased("meta_page_id", table, columnPrefix + "_meta_page_id"));
+        columns.add(Column.aliased("meta_form_responses", table, columnPrefix + "_meta_form_responses"));
+        columns.add(Column.aliased("meta_raw_payload", table, columnPrefix + "_meta_raw_payload"));
 
         columns.add(Column.aliased("customer_id", table, columnPrefix + "_customer_id"));
         columns.add(Column.aliased("ad_id", table, columnPrefix + "_ad_id"));

@@ -73,6 +73,14 @@ public class MetaAdsCsvIngestionStrategy implements LeadIngestionStrategy {
             ExcelLeadRowDTO dto = new ExcelLeadRowDTO();
             dto.setRowNumber(rowNumber);
 
+            // Keep every answer column, not only the ones mapped below
+            final List<String> rowValues = values;
+            dto.setMetaFormResponses(
+                com.salescrm.service.util.MetaLeadDataUtil.formResponsesFromRow(
+                    headerMap,
+                    idx -> idx < rowValues.size() && rowValues.get(idx) != null ? rowValues.get(idx).trim() : null
+                )
+            );
             dto.setId(getValue(values, headerMap, "id", "lead_id"));
             dto.setCreatedTime(getValue(values, headerMap, "created_time", "created_at", "time", "date"));
             dto.setAdId(getValue(values, headerMap, "ad_id", "ad id"));

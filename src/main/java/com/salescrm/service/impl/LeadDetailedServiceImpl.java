@@ -130,6 +130,8 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
         dto.setStatus(lead.getStatus());
         dto.setNotes(lead.getNotes());
         dto.setCreatedAt(lead.getCreatedAt());
+        dto.setMetaPageId(lead.getMetaPageId());
+        dto.setMetaFormResponses(lead.getMetaFormResponses());
 
         if (lead.getCustomer() != null) {
             Customer c = lead.getCustomer();
@@ -145,6 +147,7 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
             LeadForm form = lead.getLeadForm();
             dto.setLeadFormId(form.getId());
             dto.setLeadFormName(form.getName());
+            dto.setLeadFormExternalId(form.getExternalId());
         }
 
         Mono<Void> adHierarchyMono = Mono.empty();
@@ -159,6 +162,7 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
                     .flatMap(adSet -> {
                         dto.setAdSetId(adSet.getId());
                         dto.setAdSetName(adSet.getName());
+                        dto.setAdSetExternalId(adSet.getExternalId());
 
                         if (adSet.getCampaignId() != null) {
                             return campaignRepository.findById(adSet.getCampaignId())

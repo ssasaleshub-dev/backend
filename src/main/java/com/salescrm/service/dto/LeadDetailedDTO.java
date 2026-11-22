@@ -43,6 +43,45 @@ public class LeadDetailedDTO implements Serializable {
 
     private Long leadFormId;
     private String leadFormName;
+    private String leadFormExternalId;
+    private String adSetExternalId;
+
+    // Everything else Meta sent for this lead
+    private String metaPageId;
+    /** JSON [{"key","label","value"}] with every Instant Form / export answer. */
+    private String metaFormResponses;
+
+    public String getLeadFormExternalId() {
+        return leadFormExternalId;
+    }
+
+    public void setLeadFormExternalId(String leadFormExternalId) {
+        this.leadFormExternalId = leadFormExternalId;
+    }
+
+    public String getAdSetExternalId() {
+        return adSetExternalId;
+    }
+
+    public void setAdSetExternalId(String adSetExternalId) {
+        this.adSetExternalId = adSetExternalId;
+    }
+
+    public String getMetaPageId() {
+        return metaPageId;
+    }
+
+    public void setMetaPageId(String metaPageId) {
+        this.metaPageId = metaPageId;
+    }
+
+    public String getMetaFormResponses() {
+        return metaFormResponses;
+    }
+
+    public void setMetaFormResponses(String metaFormResponses) {
+        this.metaFormResponses = metaFormResponses;
+    }
 
     // Resolved Visa / Candidate Requirements
     private Long preferenceId;

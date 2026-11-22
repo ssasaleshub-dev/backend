@@ -58,6 +58,28 @@ public class ExcelLeadRowDTO implements Serializable {
 
     private String leadStatus;
 
+    /** Every question/answer from the Meta form or export row, as JSON [{"key","label","value"}]. */
+    private String metaFormResponses;
+
+    /** Full Meta Graph API response (webhook leads only). */
+    private String metaRawPayload;
+
+    public String getMetaFormResponses() {
+        return metaFormResponses;
+    }
+
+    public void setMetaFormResponses(String metaFormResponses) {
+        this.metaFormResponses = metaFormResponses;
+    }
+
+    public String getMetaRawPayload() {
+        return metaRawPayload;
+    }
+
+    public void setMetaRawPayload(String metaRawPayload) {
+        this.metaRawPayload = metaRawPayload;
+    }
+
     public ExcelLeadRowDTO() {}
 
     public int getRowNumber() {

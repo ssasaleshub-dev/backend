@@ -40,4 +40,5 @@
     <include file="config/liquibase/changelog/20261121230000_added_staff_biometric_credentials.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261122120000_rename_lead_preference_payment_columns.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261122200000_added_attendance_verification.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261123000000_added_lead_meta_data.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

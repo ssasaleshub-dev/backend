@@ -36,11 +36,41 @@ public class LeadDTO implements Serializable {
 
     private Instant updatedAt;
 
+    private String metaPageId;
+
+    private String metaFormResponses;
+
+    private String metaRawPayload;
+
     private CustomerDTO customer;
 
     private AdDTO ad;
 
     private LeadFormDTO leadForm;
+
+    public String getMetaPageId() {
+        return this.metaPageId;
+    }
+
+    public void setMetaPageId(String metaPageId) {
+        this.metaPageId = metaPageId;
+    }
+
+    public String getMetaFormResponses() {
+        return this.metaFormResponses;
+    }
+
+    public void setMetaFormResponses(String metaFormResponses) {
+        this.metaFormResponses = metaFormResponses;
+    }
+
+    public String getMetaRawPayload() {
+        return this.metaRawPayload;
+    }
+
+    public void setMetaRawPayload(String metaRawPayload) {
+        this.metaRawPayload = metaRawPayload;
+    }
 
     public Long getId() {
         return id;
