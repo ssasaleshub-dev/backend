@@ -44,13 +44,24 @@ public class StaffBiometricServiceImpl implements StaffBiometricService {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Biometric Key ID is required"));
         }
 
+        // Registration must come from the SSA Android app, which creates a fingerprint-locked key
+        // pair in the phone's secure hardware and sends the public half.
+        try {
+            com.salescrm.service.util.AttendanceSignatureVerifier.parsePublicKey(dto.getPublicKey());
+        } catch (IllegalArgumentException e) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Fingerprint registration must be done from the SSA Android app (" + e.getMessage() + ")."));
+        }
+
         final String cleanUserId = dto.getUserId().trim().toLowerCase();
         final String cleanDeviceId = dto.getDeviceId().trim();
         final String cleanKeyId = dto.getBiometricKeyId().trim();
+        final String publicKey = dto.getPublicKey().trim();
 
         return credentialRepository.findByUserIdAndDeviceId(cleanUserId, cleanDeviceId)
             .flatMap(existing -> {
                 existing.setBiometricKeyId(cleanKeyId);
+                existing.setPublicKey(publicKey);
                 existing.setDeviceName(dto.getDeviceName());
                 existing.setStatus("PENDING_APPROVAL");
                 existing.setIsLocked(false);
@@ -67,6 +78,7 @@ public class StaffBiometricServiceImpl implements StaffBiometricService {
                 credential.setDeviceId(cleanDeviceId);
                 credential.setDeviceName(dto.getDeviceName() != null ? dto.getDeviceName() : "Office Device");
                 credential.setBiometricKeyId(cleanKeyId);
+                credential.setPublicKey(publicKey);
                 credential.setStatus("PENDING_APPROVAL");
                 credential.setIsLocked(false);
                 credential.setCreatedAt(Instant.now());
@@ -178,6 +190,7 @@ public class StaffBiometricServiceImpl implements StaffBiometricService {
         dto.setDeviceId(entity.getDeviceId());
         dto.setDeviceName(entity.getDeviceName());
         dto.setBiometricKeyId(entity.getBiometricKeyId());
+        dto.setPublicKey(entity.getPublicKey());
         dto.setStatus(entity.getStatus());
         dto.setIsLocked(entity.getIsLocked());
         dto.setLockedAt(entity.getLockedAt());

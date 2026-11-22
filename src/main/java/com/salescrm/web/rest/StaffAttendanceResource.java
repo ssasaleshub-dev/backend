@@ -91,6 +91,15 @@ public class StaffAttendanceResource {
                             return Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required to punch attendance."));
                         }
 
+                        // Staff check-ins must go through fingerprint verification
+                        // (POST /api/attendance/verification + a signature from the registered phone).
+                        // This direct route trusted client-supplied device/key strings, so it is admin-only now.
+                        if (!isAdmin) {
+                            LOG.warn("Rejected direct check-in for [{}]: fingerprint verification required", targetUser);
+                            return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
+                                "Check-in requires fingerprint verification. Update the SSA app and check in again."));
+                        }
+
                         String deviceId = payload.get("deviceId");
                         String biometricKeyId = payload.get("biometricKeyId");
 

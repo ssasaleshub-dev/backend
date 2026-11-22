@@ -15,6 +15,7 @@ public class StaffBiometricDTO implements Serializable {
     private String deviceId;
     private String deviceName;
     private String biometricKeyId;
+    private String publicKey;
     private String status;
     private Boolean isLocked;
     private Instant lockedAt;
@@ -67,6 +68,14 @@ public class StaffBiometricDTO implements Serializable {
 
     public void setBiometricKeyId(String biometricKeyId) {
         this.biometricKeyId = biometricKeyId;
+    }
+
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    public void setPublicKey(String publicKey) {
+        this.publicKey = publicKey;
     }
 
     public String getStatus() {

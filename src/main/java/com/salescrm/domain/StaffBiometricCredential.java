@@ -50,6 +50,13 @@ public class StaffBiometricCredential implements Serializable {
 
     @NotNull(message = "must not be null")
     @Size(max = 50)
+    /**
+     * Base64 X.509 (SubjectPublicKeyInfo) EC P-256 public key. The private key never leaves the
+     * phone's secure hardware and can only sign after a successful fingerprint scan.
+     */
+    @Column("public_key")
+    private String publicKey;
+
     @Column("status")
     private String status = "PENDING_APPROVAL"; // PENDING_APPROVAL, LOCKED, REVOKED
 
@@ -115,6 +122,14 @@ public class StaffBiometricCredential implements Serializable {
 
     public void setBiometricKeyId(String biometricKeyId) {
         this.biometricKeyId = biometricKeyId;
+    }
+
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    public void setPublicKey(String publicKey) {
+        this.publicKey = publicKey;
     }
 
     public String getStatus() {

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Cryptographic fingerprint check-in.
+        1. Each registered phone stores the public half of a key pair whose private half lives in the
+           phone's secure hardware and can only be used after a successful fingerprint scan.
+        2. Every check-in is a one-time challenge that the phone must sign with that key.
+    -->
+    <changeSet id="20261122200000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="staff_biometric_credentials" columnName="public_key"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="staff_biometric_credentials">
+            <column name="public_key" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261122200000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="attendance_verification"/>
+            </not>
+        </preConditions>
+        <createTable tableName="attendance_verification">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action" type="varchar(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nonce" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(20)"/>
+            <column name="work_mode" type="varchar(20)"/>
+            <column name="note" type="varchar(500)"/>
+            <column name="requested_from" type="varchar(500)"/>
+            <column name="approved_device_id" type="varchar(255)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="resolved_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="attendance_verification" indexName="idx_attendance_verification__user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
