@@ -283,7 +283,7 @@ class LeadImportServiceImplTest {
         when(leadPreferenceRepository.save(any(LeadPreference.class))).thenAnswer(invocation -> {
             LeadPreference prefArg = invocation.getArgument(0);
             assertThat(prefArg.getEducationalQualification()).isEqualTo("Bachelor Degree / UG Graduate");
-            assertThat(prefArg.getBudgetRange()).isEqualTo("60-70% / 6.0-7.0 CGPA");
+            assertThat(prefArg.getBudgetRange()).isNull();
             return Mono.just(prefArg);
         });
 

@@ -431,13 +431,8 @@ public class LeadImportServiceImpl implements LeadImportService {
                 if (row.getAreYouWorking() != null && !row.getAreYouWorking().isBlank()) existing.setAreYouWorking(row.getAreYouWorking());
                 if (row.getLeadConfirm() != null && !row.getLeadConfirm().isBlank()) existing.setLeadConfirm(row.getLeadConfirm());
 
-                // Store CGPA or budget
-                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
-                    existing.setBudgetRange(row.getCgpaOrPercentage().trim());
-                }
-
-                // Legacy fields
-                if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) existing.setBudgetRange(row.getPreferredBudget());
+                // Monetary budget (preferred budget only; CGPA/percentage belongs to academic profile)
+                if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) existing.setBudgetRange(row.getPreferredBudget().trim());
                 if (row.getPlanningToBuy() != null && !row.getPlanningToBuy().isBlank()) existing.setPurchaseTimeline(row.getPlanningToBuy());
                 return leadPreferenceRepository.save(existing).thenReturn(lead);
             })
@@ -451,14 +446,9 @@ public class LeadImportServiceImpl implements LeadImportService {
                 pref.setAreYouWorking(row.getAreYouWorking());
                 pref.setLeadConfirm(row.getLeadConfirm());
 
-                // Store CGPA or budget
-                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
-                    pref.setBudgetRange(row.getCgpaOrPercentage().trim());
-                }
-
-                // Legacy fields
+                // Monetary budget (preferred budget only; CGPA/percentage belongs to academic profile)
                 if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) {
-                    pref.setBudgetRange(row.getPreferredBudget());
+                    pref.setBudgetRange(row.getPreferredBudget().trim());
                 }
                 pref.setPurchaseTimeline(row.getPlanningToBuy());
                 pref.setCreatedAt(lead.getCreatedTime() != null ? lead.getCreatedTime() : Instant.now());

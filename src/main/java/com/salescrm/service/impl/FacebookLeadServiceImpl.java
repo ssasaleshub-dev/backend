@@ -458,12 +458,8 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 pref.setAreYouWorking(row.getAreYouWorking());
                 pref.setLeadConfirm(row.getLeadConfirm());
 
-                if (row.getCgpaOrPercentage() != null && !row.getCgpaOrPercentage().isBlank()) {
-                    pref.setBudgetRange(row.getCgpaOrPercentage().trim());
-                }
-
                 if (row.getPreferredBudget() != null && !row.getPreferredBudget().isBlank()) {
-                    pref.setBudgetRange(row.getPreferredBudget());
+                    pref.setBudgetRange(row.getPreferredBudget().trim());
                 }
                 pref.setPurchaseTimeline(row.getPlanningToBuy());
                 pref.setCreatedAt(Instant.now());

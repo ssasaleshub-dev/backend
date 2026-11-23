@@ -190,8 +190,24 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
                 dto.setAssignedTo(p.getAssignedTo());
 
                 // Financial settlement profile
-                dto.setBudgetRange(p.getBudgetRange());
-                dto.setClientBudget(p.getBudgetRange());
+                String rawBudget = p.getBudgetRange();
+                boolean isScore = rawBudget != null && (
+                    rawBudget.contains("%") ||
+                    rawBudget.toLowerCase().contains("cgpa") ||
+                    rawBudget.toLowerCase().contains("gpa")
+                );
+
+                if (isScore) {
+                    // Legacy record stored CGPA inside budget_range; rescue it into score
+                    String cleanedScore = rawBudget.replace("_", " ").trim();
+                    dto.setStudentPercentage(cleanedScore);
+                    dto.setCgpa(cleanedScore);
+                    dto.setBudgetRange(null);
+                    dto.setClientBudget(null);
+                } else {
+                    dto.setBudgetRange(rawBudget);
+                    dto.setClientBudget(rawBudget);
+                }
 
                 String pStatus = p.getPaymentStatus() != null && !p.getPaymentStatus().isBlank() ? p.getPaymentStatus() : "UNPAID";
                 dto.setPaymentStatus(pStatus);
@@ -205,10 +221,10 @@ public class LeadDetailedServiceImpl implements LeadDetailedService {
         // Extract student percentage / CGPA from candidate notes if present
         if (lead.getNotes() != null) {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile(
-                "(?i)(?:what_is_your_cgpa_or_current_percentage|cgpa|percentage|score|marks)\\s*[:=?]\\s*([^|\\n,;]+)"
+                "(?i)(?:what_is_your_cgpa_or_current_percentage|cgpa[\\s/]*percentage|cgpa|percentage|score|marks)\\s*[:=?/]\\s*([^|\\n,;]+)"
             ).matcher(lead.getNotes());
             if (m.find()) {
-                String score = m.group(1).trim();
+                String score = m.group(1).trim().replace("_", " ");
                 dto.setStudentPercentage(score);
                 dto.setCgpa(score);
             }
