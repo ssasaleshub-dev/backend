@@ -103,8 +103,8 @@ public class EmailResource {
 
         EmailRequestDTO req = new EmailRequestDTO();
         req.setTo(toEmail);
-        req.setSubject("✅ SSA Sales Hub – SMTP Test Email");
-        req.setBody("<h2>SMTP is working!</h2><p>Your email configuration is correctly set up for <strong>SSA Sales Hub</strong>.</p>");
+        req.setSubject("✅ SSA Saleshub – SMTP Test Email");
+        req.setBody("<h2>SMTP is working!</h2><p>Your email configuration is correctly set up for <strong>SSA Saleshub</strong>.</p>");
         req.setHtml(true);
 
         return emailService.sendEmail(req)
@@ -124,22 +124,47 @@ public class EmailResource {
             @RequestBody Map<String, String> body) {
 
         String toEmail = body.getOrDefault("toEmail", "");
-        LOG.info("[EmailResource] Test 10-lead batch email to: {}", toEmail);
+        String userName = body.getOrDefault("userName", body.getOrDefault("name", ""));
+        LOG.info("[EmailResource] Test 10-lead notification email to: {} (user: {})", toEmail, userName);
 
         java.util.List<com.salescrm.service.dto.LeadBatchItemDTO> sampleBatch = new java.util.ArrayList<>();
         for (int i = 1; i <= 10; i++) {
             sampleBatch.add(new com.salescrm.service.dto.LeadBatchItemDTO(
-                String.valueOf(1000 + i),
                 "Candidate " + i + " (Sample)",
                 "+91 98765 4321" + (i % 10),
-                (i % 2 == 0) ? "Meta Instagram" : "Meta Facebook"
+                (i % 2 == 0) ? "Meta Instagram" : "Meta Facebook",
+                "24 Nov, 08:30 pm"
             ));
         }
 
-        return emailService.sendBatchLeadAlertEmail(toEmail, sampleBatch)
+        return emailService.sendBatchLeadAlertEmail(toEmail, userName, sampleBatch)
                 .thenReturn(ResponseEntity.ok(Map.of(
                         "status", "success",
-                        "message", "Sample 10-lead batch email dispatched to " + toEmail
+                        "message", "Sample notification email dispatched to " + toEmail
+                )));
+    }
+
+    /**
+     * POST /api/email/login-alert
+     * Send a new login session detection alert email.
+     */
+    @PostMapping("/login-alert")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_USER')")
+    public Mono<ResponseEntity<Map<String, String>>> sendLoginAlert(
+            @RequestBody Map<String, String> body) {
+
+        String toEmail = body.getOrDefault("toEmail", "");
+        String userName = body.getOrDefault("userName", body.getOrDefault("name", ""));
+        String device = body.getOrDefault("device", "Chrome on Windows");
+        String location = body.getOrDefault("location", "Chennai, India");
+        String ip = body.getOrDefault("ip", "103.28.246.12");
+
+        LOG.info("[EmailResource] Login alert email to: {} (user: {})", toEmail, userName);
+
+        return emailService.sendNewLoginAlertEmail(toEmail, userName, device, location, ip)
+                .thenReturn(ResponseEntity.ok(Map.of(
+                        "status", "success",
+                        "message", "Login alert email dispatched to " + toEmail
                 )));
     }
 }

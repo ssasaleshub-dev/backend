@@ -69,11 +69,33 @@ public class MailService {
         // Prepare message using a Spring helper
         MimeMessage mimeMessage = javaMailSender.createMimeMessage();
         try {
-            MimeMessageHelper message = new MimeMessageHelper(mimeMessage, isMultipart, StandardCharsets.UTF_8.name());
+            boolean hasCidLogo = content != null && content.contains("cid:brandLogo");
+            MimeMessageHelper message = new MimeMessageHelper(
+                mimeMessage,
+                hasCidLogo ? MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED : (isMultipart ? MimeMessageHelper.MULTIPART_MODE_MIXED : MimeMessageHelper.MULTIPART_MODE_NO),
+                StandardCharsets.UTF_8.name()
+            );
             message.setTo(to);
-            message.setFrom(jHipsterProperties.getMail().getFrom());
+            try {
+                message.setFrom(new jakarta.mail.internet.InternetAddress(jHipsterProperties.getMail().getFrom(), "SSA Saleshub"));
+            } catch (Exception ex) {
+                message.setFrom(jHipsterProperties.getMail().getFrom());
+            }
             message.setSubject(subject);
             message.setText(content, isHtml);
+
+            // Transactional Anti-Spam headers
+            mimeMessage.addHeader("Auto-Submitted", "auto-generated");
+            mimeMessage.addHeader("X-Auto-Response-Suppress", "All");
+            mimeMessage.addHeader("Precedence", "bulk");
+
+            if (hasCidLogo) {
+                org.springframework.core.io.Resource logoRes = new org.springframework.core.io.ClassPathResource("static/brand-logo.jpg");
+                if (logoRes.exists()) {
+                    message.addInline("brandLogo", logoRes, "image/jpeg");
+                }
+            }
+
             javaMailSender.send(mimeMessage);
             LOG.debug("Sent email to User '{}'", to);
         } catch (MailException | MessagingException e) {

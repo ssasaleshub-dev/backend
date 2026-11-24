@@ -115,7 +115,18 @@ public class LeadBatchNotificationService {
                 .filter(u -> u.getEmail() != null && !u.getEmail().isBlank()
                            && u.getAuthorities() != null
                            && u.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getName())))
-                .flatMap(admin -> crmEmailService.sendBatchLeadAlertEmail(admin.getEmail(), batch))
+                .flatMap(admin -> {
+                    String adminName = null;
+                    if (admin.getFirstName() != null && !admin.getFirstName().isBlank()) {
+                        adminName = admin.getFirstName().trim();
+                        if (admin.getLastName() != null && !admin.getLastName().isBlank()) {
+                            adminName += " " + admin.getLastName().trim();
+                        }
+                    } else if (admin.getLogin() != null && !admin.getLogin().isBlank()) {
+                        adminName = admin.getLogin().trim();
+                    }
+                    return crmEmailService.sendBatchLeadAlertEmail(admin.getEmail(), adminName, batch);
+                })
                 .subscribe(
                     v -> {},
                     err -> LOG.warn("[LeadBatchEmail] Failed to send batch email to admin: {}", err.getMessage())
