@@ -13,6 +13,7 @@ public class ApplicationProperties {
 
     private FacebookProperties facebook = new FacebookProperties();
     private GoogleProperties google = new GoogleProperties();
+    private InstagramProperties instagram = new InstagramProperties();
 
     public FacebookProperties getFacebook() {
         return facebook;
@@ -28,6 +29,45 @@ public class ApplicationProperties {
 
     public void setGoogle(GoogleProperties google) {
         this.google = google;
+    }
+
+    public InstagramProperties getInstagram() {
+        return instagram;
+    }
+
+    public void setInstagram(InstagramProperties instagram) {
+        this.instagram = instagram;
+    }
+
+    public static class InstagramProperties {
+
+        private String pageAccessToken = "";
+        private String verifyToken = "";
+        private String accountId = "";
+
+        public String getPageAccessToken() {
+            return pageAccessToken;
+        }
+
+        public void setPageAccessToken(String pageAccessToken) {
+            this.pageAccessToken = pageAccessToken;
+        }
+
+        public String getVerifyToken() {
+            return verifyToken;
+        }
+
+        public void setVerifyToken(String verifyToken) {
+            this.verifyToken = verifyToken;
+        }
+
+        public String getAccountId() {
+            return accountId;
+        }
+
+        public void setAccountId(String accountId) {
+            this.accountId = accountId;
+        }
     }
 
     public static class GoogleProperties {

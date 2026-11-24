@@ -211,6 +211,10 @@ application:
     client-id: "${GOOGLE_CLIENT_ID:}"
     client-secret: "${GOOGLE_CLIENT_SECRET:}"
     redirect-uri: "${GOOGLE_REDIRECT_URI:https://ssasaleshub.cloud/api/integrations/google/callback}"
+  instagram:
+    page-access-token: "${INSTAGRAM_PAGE_ACCESS_TOKEN:}"
+    verify-token: "${INSTAGRAM_VERIFY_TOKEN:}"
+    account-id: "${INSTAGRAM_ACCOUNT_ID:}"
 
 cloudflare:
   r2:

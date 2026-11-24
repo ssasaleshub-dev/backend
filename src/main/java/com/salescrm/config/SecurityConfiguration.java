@@ -81,6 +81,8 @@ public class SecurityConfiguration {
                     // Google OAuth callback and auth-url
                     .pathMatchers("/api/integrations/google/callback").permitAll()
                     .pathMatchers("/api/integrations/google/auth-url").permitAll()
+                    // Instagram status check
+                    .pathMatchers("/api/integrations/instagram/status").permitAll()
                     // All CRM data (leads, customers, preferences, events, notifications, chat, files,
                     // attendance) requires a logged-in user; per-lead and per-owner rules are enforced
                     // in the resources via LeadAccessService.
