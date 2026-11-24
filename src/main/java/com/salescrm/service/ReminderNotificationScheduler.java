@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -48,6 +49,7 @@ public class ReminderNotificationScheduler {
     private final UserRepository userRepository;
     private final CrmEmailService crmEmailService;
 
+    @Autowired
     public ReminderNotificationScheduler(
         CrmEventRepository crmEventRepository,
         CrmNotificationRepository crmNotificationRepository,
@@ -64,16 +66,6 @@ public class ReminderNotificationScheduler {
         this.leadDetailedService = leadDetailedService;
         this.userRepository = userRepository;
         this.crmEmailService = crmEmailService;
-    }
-
-    public ReminderNotificationScheduler(
-        CrmEventRepository crmEventRepository,
-        CrmNotificationRepository crmNotificationRepository,
-        CrmNotificationService crmNotificationService,
-        FirebasePushNotificationService firebasePushNotificationService,
-        LeadDetailedService leadDetailedService
-    ) {
-        this(crmEventRepository, crmNotificationRepository, crmNotificationService, firebasePushNotificationService, leadDetailedService, null, null);
     }
 
     /**
