@@ -1,20 +1,94 @@
 <!doctype html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
   <head>
-    <title th:text="#{email.activation.title}">JHipster creation</title>
+    <title th:text="#{email.activation.title}">SSA Saleshub - Account Setup</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="icon" th:href="@{|${baseUrl}/favicon.ico|}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="format-detection" content="telephone=no" />
+    <style>
+      @media only screen and (max-width: 600px) {
+        .email-wrapper { padding: 12px 6px !important; }
+        .email-card { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }
+        .header-box { padding: 14px 16px !important; }
+        .brand-title { font-size: 16px !important; }
+        .brand-sub { font-size: 10px !important; }
+        .body-box { padding: 20px 16px !important; }
+        .cta-btn { display: block !important; width: 100% !important; padding: 14px 0 !important; }
+        .footer-box { padding: 16px 14px !important; }
+      }
+    </style>
   </head>
-  <body>
-    <p th:text="#{email.activation.greeting(${user.login})}">Dear</p>
-    <p th:text="#{email.creation.text1}">Your JHipster account has been created, please click on the URL below to access it:</p>
-    <p>
-      <a th:with="url=(@{|${baseUrl}/account/reset/finish?key=${user.resetKey}|})" th:href="${url}" th:text="${url}">Login link</a>
-    </p>
-    <p>
-      <span th:text="#{email.activation.text2}">Regards, </span>
-      <br />
-      <em th:text="#{email.signature}">JHipster.</em>
-    </p>
+  <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, Helvetica, sans-serif; color: #222222; -webkit-font-smoothing: antialiased;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" class="email-wrapper" style="padding: 24px 10px; margin: 0 auto; width: 100% !important;">
+      <tr>
+        <td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);">
+
+            <!-- Brand Header -->
+            <tr>
+              <td class="header-box" style="background: linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%); border-bottom: 3px solid #facc15; padding: 16px 20px;">
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td style="vertical-align: middle; width: 40px; min-width: 40px;">
+                      <img src="cid:brandLogo" width="38" height="38" alt="SSA Logo" style="display: block; border-radius: 10px; border: 1.5px solid rgba(250, 204, 21, 0.6); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);" />
+                    </td>
+                    <td style="vertical-align: middle; padding-left: 12px;">
+                      <div class="brand-title" style="color: #ffffff; font-size: 17px; font-weight: 800; letter-spacing: -0.2px; line-height: 1.2; white-space: nowrap;">SSA Saleshub</div>
+                      <div class="brand-sub" style="color: #fef08a; font-size: 11px; font-weight: 500; margin-top: 2px; white-space: nowrap;">Account Setup</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body Content -->
+            <tr>
+              <td class="body-box" style="padding: 26px 24px 22px;">
+                <p style="font-size: 15px; margin: 0 0 12px 0; color: #1e293b; line-height: 1.5;">
+                  Hello <strong th:text="${user.firstName != null and !user.firstName.isEmpty() ? user.firstName : user.login}">User</strong>,
+                </p>
+                <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">
+                  Your SSA Saleshub account is ready. Click the button below to set your password and access your account:
+                </p>
+
+                <!-- Action Button -->
+                <table align="center" cellpadding="0" cellspacing="0" border="0" style="margin: 24px auto;">
+                  <tr>
+                    <td align="center" style="border-radius: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                      <a th:with="url=(@{|${baseUrl}/account/reset/finish?key=${user.resetKey}|})" th:href="${url}" class="cta-btn" style="display: inline-block; padding: 13px 32px; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px;">Set Up Password</a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="font-size: 12px; color: #64748b; line-height: 1.6; margin: 20px 0 6px 0;">
+                  If the button above does not work, copy and paste this link into your browser:
+                </p>
+                <p style="font-size: 11px; color: #059669; word-break: break-all; margin: 0 0 20px 0;">
+                  <a th:with="url=(@{|${baseUrl}/account/reset/finish?key=${user.resetKey}|})" th:href="${url}" th:text="${url}" style="color: #059669; text-decoration: none;">Link</a>
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 0 0 16px 0;" />
+                <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0;">
+                  Best regards,<br />
+                  <strong style="color: #065f46;">SSA Saleshub Team</strong>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td class="footer-box" style="background: #f8fafc; padding: 16px 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.6;">
+                  &copy; <span th:text="${#calendars.year(#calendars.createNow())}">2026</span> SSA Saleshub
+                  &nbsp;&bull;&nbsp; <a href="https://ssasaleshub.cloud" style="color: #059669; font-weight: 600; text-decoration: none;">ssasaleshub.cloud</a>
+                </p>
+                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 11px;">This is an automated operational notification. Please do not reply.</p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>

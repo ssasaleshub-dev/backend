@@ -1,6 +1,7 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.service.CrmEmailService;
+import com.salescrm.service.WeeklyReportService;
 import com.salescrm.service.dto.EmailRequestDTO;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -25,9 +26,11 @@ public class EmailResource {
     private static final Logger LOG = LoggerFactory.getLogger(EmailResource.class);
 
     private final CrmEmailService emailService;
+    private final WeeklyReportService weeklyReportService;
 
-    public EmailResource(CrmEmailService emailService) {
+    public EmailResource(CrmEmailService emailService, WeeklyReportService weeklyReportService) {
         this.emailService = emailService;
+        this.weeklyReportService = weeklyReportService;
     }
 
     /**
@@ -165,6 +168,65 @@ public class EmailResource {
                 .thenReturn(ResponseEntity.ok(Map.of(
                         "status", "success",
                         "message", "Login alert email dispatched to " + toEmail
+                )));
+    }
+
+    /**
+     * POST /api/email/weekly-report
+     * Dispatch weekly executive summary report to admin users (ROLE_ADMIN only).
+     * If 'toEmail' is provided in request body, sends to that email.
+     * Otherwise, broadcasts to all administrators registered in the system.
+     */
+    @PostMapping("/weekly-report")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public Mono<ResponseEntity<Map<String, Object>>> sendWeeklyReport(
+            @RequestBody(required = false) Map<String, String> body) {
+
+        String toEmail = (body != null) ? body.getOrDefault("toEmail", "").trim() : "";
+        String userName = (body != null) ? body.getOrDefault("userName", body.getOrDefault("name", "")).trim() : "";
+
+        if (!toEmail.isBlank()) {
+            LOG.info("[EmailResource] Ad-hoc weekly report requested for: {} (name: {})", toEmail, userName);
+            return weeklyReportService.sendWeeklyReportTo(toEmail, userName)
+                .thenReturn(ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Weekly performance report dispatched to " + toEmail
+                )));
+        }
+
+        LOG.info("[EmailResource] Broadcasting weekly performance report to all administrators");
+        return weeklyReportService.sendWeeklyReportToAdmins()
+            .map(count -> ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Weekly performance report dispatched to " + count + " admin(s)",
+                "adminCount", count
+            )));
+    }
+
+    /**
+     * POST /api/email/calendar-reminder
+     * Send a calendar reminder or schedule notification email (admin/staff).
+     */
+    @PostMapping("/calendar-reminder")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_USER')")
+    public Mono<ResponseEntity<Map<String, String>>> sendCalendarReminder(
+            @RequestBody Map<String, String> body) {
+
+        String toEmail = body.getOrDefault("toEmail", "");
+        String userName = body.getOrDefault("userName", body.getOrDefault("name", "User"));
+        String title = body.getOrDefault("title", "Candidate Follow-up Consultation");
+        String eventDate = body.getOrDefault("eventDate", "Nov 25, 2026");
+        String eventTime = body.getOrDefault("eventTime", "10:30 AM");
+        String description = body.getOrDefault("description", "Follow-up regarding university admission and visa documentation.");
+        String candidateName = body.getOrDefault("candidateName", "John Doe");
+        boolean isConfirmation = Boolean.parseBoolean(body.getOrDefault("isConfirmation", "false"));
+
+        LOG.info("[EmailResource] Calendar reminder email to: {} (user: {}, confirmation: {})", toEmail, userName, isConfirmation);
+
+        return emailService.sendCalendarReminderEmail(toEmail, userName, title, eventDate, eventTime, description, candidateName, isConfirmation)
+                .thenReturn(ResponseEntity.ok(Map.of(
+                        "status", "success",
+                        "message", "Calendar reminder email dispatched to " + toEmail
                 )));
     }
 }

@@ -1,6 +1,8 @@
 package com.salescrm.web.rest;
 
 import com.salescrm.domain.CrmEvent;
+import com.salescrm.repository.UserRepository;
+import com.salescrm.service.CrmEmailService;
 import com.salescrm.service.CrmEventService;
 import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadAccessService;
@@ -35,18 +37,33 @@ public class EventResource {
     private final LeadActivityService leadActivityService;
     private final FirebasePushNotificationService firebasePushNotificationService;
     private final LeadAccessService leadAccessService;
+    private final CrmEmailService crmEmailService;
+    private final UserRepository userRepository;
 
     @Autowired
     public EventResource(
         CrmEventService crmEventService,
         @Autowired(required = false) LeadActivityService leadActivityService,
         @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
-        LeadAccessService leadAccessService
+        LeadAccessService leadAccessService,
+        @Autowired(required = false) CrmEmailService crmEmailService,
+        @Autowired(required = false) UserRepository userRepository
     ) {
         this.crmEventService = crmEventService;
         this.leadActivityService = leadActivityService;
         this.firebasePushNotificationService = firebasePushNotificationService;
         this.leadAccessService = leadAccessService;
+        this.crmEmailService = crmEmailService;
+        this.userRepository = userRepository;
+    }
+
+    public EventResource(
+        CrmEventService crmEventService,
+        LeadActivityService leadActivityService,
+        FirebasePushNotificationService firebasePushNotificationService,
+        LeadAccessService leadAccessService
+    ) {
+        this(crmEventService, leadActivityService, firebasePushNotificationService, leadAccessService, null, null);
     }
 
     /**
@@ -159,6 +176,37 @@ public class EventResource {
                             act.setSummary("Reminder Scheduled: " + result.getTitle());
                             act.setDetails("Scheduled on " + result.getEventDate() + " at " + (result.getEventTime() != null ? result.getEventTime() : "09:00") + (result.getDescription() != null ? " - " + result.getDescription() : ""));
                             leadActivityService.logActivity(act).subscribe(null, err -> LOG.warn("Could not log reminder activity: {}", err.getMessage()));
+                        }
+
+                        // Dispatch calendar reminder schedule confirmation email to user
+                        if (crmEmailService != null && userRepository != null && result.getUserId() != null) {
+                            userRepository.findOneByLogin(result.getUserId())
+                                .switchIfEmpty(userRepository.findOneByEmailIgnoreCase(result.getUserId()))
+                                .flatMap(user -> {
+                                    if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                                        String userName = (user.getFirstName() != null && !user.getFirstName().isBlank())
+                                            ? user.getFirstName()
+                                            : user.getLogin();
+                                        String dateStr = result.getEventDate() != null ? result.getEventDate().toString() : "Today";
+                                        String timeStr = result.getEventTime() != null ? result.getEventTime().toString() : "09:00 AM";
+                                        return crmEmailService.sendCalendarReminderEmail(
+                                            user.getEmail(),
+                                            userName,
+                                            result.getTitle(),
+                                            dateStr,
+                                            timeStr,
+                                            result.getDescription(),
+                                            result.getCandidateName(),
+                                            true
+                                        );
+                                    }
+                                    return Mono.empty();
+                                })
+                                .onErrorResume(err -> {
+                                    LOG.warn("Could not dispatch reminder schedule email for {}: {}", result.getUserId(), err.getMessage());
+                                    return Mono.empty();
+                                })
+                                .subscribe();
                         }
 
                         return ResponseEntity.created(new URI("/api/events/" + result.getId())).body(result);

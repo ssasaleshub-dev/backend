@@ -55,6 +55,49 @@ public interface CrmEmailService {
     Mono<Void> sendNewLoginAlertEmail(String toEmail, String userName, String device, String location, String ipAddress);
 
     /**
+     * Send executive weekly performance report to an admin user.
+     * Contains only aggregate counts, percentages, and inline trend graph.
+     * STRICT ZERO DATA LEAKAGE: Never includes candidate personal info.
+     */
+    Mono<Void> sendWeeklyAdminReportEmail(String toEmail, String adminName, com.salescrm.service.dto.WeeklyReportStatsDTO stats);
+
+    /**
+     * Send calendar event or follow-up reminder notification email to a user.
+     * Follows the official SSA Saleshub human UI design (clean typographic layout, no card-in-card boxes).
+     *
+     * @param toEmail recipient email address
+     * @param userName recipient display name
+     * @param eventTitle title of the scheduled event / reminder
+     * @param eventDate formatted date string (e.g. "Nov 25, 2026")
+     * @param eventTime formatted time string (e.g. "10:30 AM")
+     * @param description event details or counselor notes
+     * @param candidateName associated candidate / lead name (if applicable)
+     * @param isScheduledConfirmation true if confirming a new reminder set, false if alert when due
+     */
+    Mono<Void> sendCalendarReminderEmail(
+        String toEmail,
+        String userName,
+        String eventTitle,
+        String eventDate,
+        String eventTime,
+        String description,
+        String candidateName,
+        boolean isScheduledConfirmation
+    );
+
+    default Mono<Void> sendCalendarReminderEmail(
+        String toEmail,
+        String userName,
+        String eventTitle,
+        String eventDate,
+        String eventTime,
+        String description,
+        String candidateName
+    ) {
+        return sendCalendarReminderEmail(toEmail, userName, eventTitle, eventDate, eventTime, description, candidateName, false);
+    }
+
+    /**
      * Send a custom bulk/marketing email (admin-triggered).
      */
     Mono<Void> sendBulkEmail(String toEmail, String subject, String htmlBody);

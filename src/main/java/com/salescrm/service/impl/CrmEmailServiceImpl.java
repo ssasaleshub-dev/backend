@@ -3,12 +3,15 @@ package com.salescrm.service.impl;
 import com.salescrm.service.CrmEmailService;
 import com.salescrm.service.dto.EmailRequestDTO;
 import com.salescrm.service.dto.LeadBatchItemDTO;
+import com.salescrm.service.dto.WeeklyReportStatsDTO;
+import com.salescrm.service.util.ChartGeneratorUtil;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -21,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -280,9 +284,71 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                    .subscribeOn(Schedulers.boundedElastic()).then();
     }
 
+    @Override
+    public Mono<Void> sendWeeklyAdminReportEmail(String toEmail, String adminName, WeeklyReportStatsDTO stats) {
+        return Mono.fromRunnable(() -> {
+            String greeting = resolveGreeting(adminName);
+            String range = (stats != null && stats.getDateRange() != null && !stats.getDateRange().isBlank())
+                ? stats.getDateRange()
+                : "Past 7 Days";
+            String subject = "SSA Saleshub: Weekly Performance Summary (" + range + ")";
+
+            byte[] chartBytes = null;
+            if (stats != null && stats.getDailyCounts() != null) {
+                chartBytes = ChartGeneratorUtil.generateWeeklyBarChart(
+                    stats.getDailyCounts(),
+                    stats.getDailyLabels(),
+                    stats.getTotalLeads()
+                );
+            }
+
+            String htmlBody = buildWeeklyReportHtml(greeting, stats);
+            String plainText = buildWeeklyReportPlainText(greeting, stats);
+
+            doSend(toEmail, null, subject, plainText, htmlBody, true, chartBytes);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    @Override
+    public Mono<Void> sendCalendarReminderEmail(
+        String toEmail,
+        String userName,
+        String eventTitle,
+        String eventDate,
+        String eventTime,
+        String description,
+        String candidateName,
+        boolean isScheduledConfirmation
+    ) {
+        return Mono.fromRunnable(() -> {
+            String greeting = resolveGreeting(userName);
+            String title = (eventTitle != null && !eventTitle.isBlank()) ? eventTitle.trim() : "Calendar Event";
+            String date = (eventDate != null && !eventDate.isBlank()) ? eventDate.trim() : "Today";
+            String time = (eventTime != null && !eventTime.isBlank()) ? eventTime.trim() : "09:00 AM";
+
+            String cleanCandidate = null;
+            if (candidateName != null && !candidateName.isBlank()) {
+                cleanCandidate = candidateName.replaceFirst("(?i)^Candidate:\\s*", "").trim();
+            }
+
+            String subject = isScheduledConfirmation
+                ? "[SSA Saleshub] Reminder Scheduled: " + title
+                : "[SSA Saleshub] Reminder: " + title;
+
+            String htmlBody = buildCalendarReminderHtml(greeting, title, date, time, description, cleanCandidate, isScheduledConfirmation);
+            String plainText = buildCalendarReminderPlainText(greeting, title, date, time, description, cleanCandidate, isScheduledConfirmation);
+
+            doSend(toEmail, null, subject, plainText, htmlBody, true);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
     // ─── Internal SMTP dispatch with Anti-Spam Headers ─────────────────────────
 
     private void doSend(String to, String cc, String subject, String plainText, String htmlBody, boolean html) {
+        doSend(to, cc, subject, plainText, htmlBody, html, null);
+    }
+
+    private void doSend(String to, String cc, String subject, String plainText, String htmlBody, boolean html, byte[] inlineChartBytes) {
         LOG.info("[EMAIL] Sending '{}' to '{}' | html={}", subject, to, html);
         try {
             MimeMessage msg = mailSender.createMimeMessage();
@@ -327,6 +393,15 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                 }
             } catch (Exception logoEx) {
                 LOG.debug("[EMAIL] Logo inline attach skipped: {}", logoEx.getMessage());
+            }
+
+            // Weekly Chart PNG CID Embedding
+            if (inlineChartBytes != null && inlineChartBytes.length > 0) {
+                try {
+                    helper.addInline("weeklyChart", new ByteArrayResource(inlineChartBytes), "image/png");
+                } catch (Exception chartEx) {
+                    LOG.debug("[EMAIL] Weekly chart inline attach skipped: {}", chartEx.getMessage());
+                }
             }
 
             mailSender.send(msg);
@@ -377,7 +452,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                 }
               </style>
             </head>
-            <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;">
+            <body style="margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" class="email-wrapper" style="padding:24px 10px;margin:0 auto;width:100% !important;">
                 <tr>
                   <td align="center">
@@ -479,7 +554,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                 }
               </style>
             </head>
-            <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;">
+            <body style="margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" class="email-wrapper" style="padding:24px 10px;margin:0 auto;width:100% !important;">
                 <tr>
                   <td align="center">
@@ -547,5 +622,410 @@ public class CrmEmailServiceImpl implements CrmEmailService {
             </body>
             </html>
             """;
+    }
+
+    private String buildWeeklyReportHtml(String greeting, WeeklyReportStatsDTO stats) {
+        String range = (stats != null && stats.getDateRange() != null && !stats.getDateRange().isBlank())
+            ? stats.getDateRange()
+            : "Past 7 Days";
+        long total = (stats != null) ? stats.getTotalLeads() : 0;
+        double growth = (stats != null) ? stats.getGrowthRate() : 0.0;
+
+        double contactRate = (stats != null) ? stats.getContactRate() : 0.0;
+        long contacted = (stats != null) ? stats.getContactedCount() : 0;
+        double convRate = (stats != null) ? stats.getConversionRate() : 0.0;
+        long converted = (stats != null) ? stats.getConvertedCount() : 0;
+        long qualified = (stats != null) ? stats.getQualifiedCount() : 0;
+
+        // Pipeline rows directly on background - 100% responsive for all screens
+        StringBuilder pipelineHtml = new StringBuilder();
+        if (stats != null && stats.getStatusBreakdown() != null && !stats.getStatusBreakdown().isEmpty()) {
+            for (Map.Entry<String, Long> entry : stats.getStatusBreakdown().entrySet()) {
+                long c = entry.getValue();
+                double pct = (total > 0) ? (c * 100.0 / total) : 0.0;
+                String name = formatStatusName(entry.getKey());
+                pipelineHtml.append("<tr>")
+                    .append("<td style='padding:6px 0;font-size:13px;color:#333333;border-bottom:1px solid #f1f5f9;width:55%;'>").append(name).append("</td>")
+                    .append("<td style='padding:6px 0;font-size:13px;color:#222222;font-weight:bold;text-align:right;border-bottom:1px solid #f1f5f9;width:45%;white-space:nowrap;'>")
+                    .append(c).append(" <span style='font-size:12px;color:#777777;font-weight:normal;'>(").append(String.format("%.1f", pct)).append("%)</span>")
+                    .append("</td>")
+                    .append("</tr>");
+            }
+        }
+
+        // Channels table directly on background - 100% responsive for all screens (no awkward text-wrapping)
+        StringBuilder channelHtml = new StringBuilder();
+        if (stats != null && stats.getPlatformBreakdown() != null && !stats.getPlatformBreakdown().isEmpty()) {
+            for (Map.Entry<String, Long> entry : stats.getPlatformBreakdown().entrySet()) {
+                long c = entry.getValue();
+                double pct = (total > 0) ? (c * 100.0 / total) : 0.0;
+                String name = formatPlatformName(entry.getKey());
+                channelHtml.append("<tr>")
+                    .append("<td style='padding:6px 0;font-size:13px;color:#333333;border-bottom:1px solid #f1f5f9;width:55%;'>").append(name).append("</td>")
+                    .append("<td style='padding:6px 0;font-size:13px;color:#222222;font-weight:bold;text-align:right;border-bottom:1px solid #f1f5f9;width:45%;white-space:nowrap;'>")
+                    .append(c).append(" <span style='font-size:12px;color:#777777;font-weight:normal;'>(").append(String.format("%.1f", pct)).append("%)</span>")
+                    .append("</td>")
+                    .append("</tr>");
+            }
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
+          .append("<meta name='viewport' content='width=device-width,initial-scale=1.0'>")
+          .append("<meta name='format-detection' content='telephone=no'>")
+          .append("<title>SSA Saleshub - Weekly Performance Summary</title>")
+          .append("<style>")
+          .append("@media only screen and (max-width: 600px) {")
+          .append(".email-wrapper { padding: 12px 6px !important; }")
+          .append(".email-card { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }")
+          .append(".header-box { padding: 14px 16px !important; }")
+          .append(".brand-title { font-size: 16px !important; }")
+          .append(".brand-sub { font-size: 10px !important; }")
+          .append(".body-box { padding: 20px 16px !important; }")
+          .append(".footer-box { padding: 16px 14px !important; }")
+          .append("}")
+          .append("</style></head>")
+          .append("<body style='margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' bgcolor='#f8fafc' class='email-wrapper' style='padding:24px 10px;margin:0 auto;width:100% !important;'><tr><td align='center'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' class='email-card' style='max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);'>")
+          // Brand Header
+          .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
+          .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
+          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
+          .append("<td style='vertical-align:middle;padding-left:12px;'>")
+          .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
+          .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>Weekly Performance Summary</div>")
+          .append("</td></tr></table></td></tr>")
+          // Body Content
+          .append("<tr><td class='body-box' style='padding:26px 24px 22px;'>")
+          .append("<h2 style='margin:0 0 6px;color:#065f46;font-size:20px;font-weight:700;letter-spacing:-0.3px;'>Weekly Performance Summary</h2>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 8px;'>").append(greeting).append("</p>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 20px;'>Here is your executive performance summary for the past 7 days (<strong>").append(range).append("</strong>) across your CRM workspace:</p>")
+          // Simple Human Numbers directly on background (No huge AI widgets, simple Arial font)
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin:16px 0 20px;'>")
+          .append("<tr>")
+          .append("<td width='50%' style='padding:6px 12px 10px 0;vertical-align:top;'>")
+          .append("<div style='font-size:13px;color:#555555;margin-bottom:2px;'>Total Inquiries</div>")
+          .append("<div style='font-size:20px;font-weight:bold;color:#222222;line-height:1.2;'>").append(total).append("</div>")
+          .append("<div style='font-size:12px;color:#047857;margin-top:2px;'>").append(growth >= 0 ? "+" + String.format("%.1f", growth) + "% vs last week" : String.format("%.1f", growth) + "% vs last week").append("</div></td>")
+          .append("<td width='50%' style='padding:6px 0 10px 12px;vertical-align:top;'>")
+          .append("<div style='font-size:13px;color:#555555;margin-bottom:2px;'>Contact Rate</div>")
+          .append("<div style='font-size:20px;font-weight:bold;color:#047857;line-height:1.2;'>").append(String.format("%.1f", contactRate)).append("%</div>")
+          .append("<div style='font-size:12px;color:#777777;margin-top:2px;'>").append(contacted).append(" of ").append(total).append(" contacted</div></td>")
+          .append("</tr><tr>")
+          .append("<td width='50%' style='padding:10px 12px 6px 0;vertical-align:top;border-top:1px solid #f1f5f9;'>")
+          .append("<div style='font-size:13px;color:#555555;margin-bottom:2px;'>Conversion Rate</div>")
+          .append("<div style='font-size:20px;font-weight:bold;color:#222222;line-height:1.2;'>").append(String.format("%.1f", convRate)).append("%</div>")
+          .append("<div style='font-size:12px;color:#777777;margin-top:2px;'>").append(converted).append(" enrolled / won</div></td>")
+          .append("<td width='50%' style='padding:10px 0 6px 12px;vertical-align:top;border-top:1px solid #f1f5f9;'>")
+          .append("<div style='font-size:13px;color:#555555;margin-bottom:2px;'>In Pipeline</div>")
+          .append("<div style='font-size:20px;font-weight:bold;color:#222222;line-height:1.2;'>").append(qualified).append("</div>")
+          .append("<div style='font-size:12px;color:#777777;margin-top:2px;'>Qualified & proposals</div></td>")
+          .append("</tr></table>")
+          // Chart directly on background (No card border)
+          .append("<div style='margin:18px 0 22px;text-align:center;'>")
+          .append("<img src='cid:weeklyChart' width='512' alt='Daily Inflow Chart' style='width:100%;max-width:512px;height:auto;display:block;margin:0 auto;border:none;' />")
+          .append("</div>")
+          // Pipeline
+          .append("<div style='margin:20px 0 18px;'>")
+          .append("<div style='font-size:14px;font-weight:bold;color:#222222;margin-bottom:8px;'>Pipeline Breakdown</div>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0'>").append(pipelineHtml).append("</table>")
+          .append("</div>")
+          // Channels - 100% responsive table (clean rows, never wraps awkwardly)
+          .append("<div style='margin:18px 0;'>")
+          .append("<div style='font-size:14px;font-weight:bold;color:#222222;margin-bottom:8px;'>Acquisition Channels</div>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0'>").append(channelHtml).append("</table>")
+          .append("</div>")
+          // Button
+          .append("<div style='text-align:center;margin:32px 0 16px;'>")
+          .append("<a href='https://ssasaleshub.cloud/leads' class='cta-btn' style='display:inline-block;background:linear-gradient(135deg, #059669 0%, #047857 100%);color:#ffffff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Open CRM Dashboard &rarr;</a>")
+          .append("</div></td></tr>")
+          // Footer
+          .append("<tr><td class='footer-box' style='background:#f8fafc;padding:18px 24px;text-align:center;border-top:1px solid #e2e8f0;'>")
+          .append("<p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; ").append(LocalDateTime.now().getYear()).append(" ").append(BRAND_NAME)
+          .append("&nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>")
+          .append("<p style='margin:4px 0 0;color:#94a3b8;font-size:11px;'>This is an automated operational notification for administrators. Please do not reply.</p>")
+          .append("</td></tr></table></td></tr></table></body></html>");
+
+        return sb.toString();
+    }
+
+    private String buildWeeklyReportPlainText(String greeting, WeeklyReportStatsDTO stats) {
+        String range = (stats != null && stats.getDateRange() != null) ? stats.getDateRange() : "Past 7 Days";
+        long total = (stats != null) ? stats.getTotalLeads() : 0;
+        double contactRate = (stats != null) ? stats.getContactRate() : 0.0;
+        double convRate = (stats != null) ? stats.getConversionRate() : 0.0;
+
+        return "SSA Saleshub - Weekly Performance Summary\n" +
+            "Period: " + range + "\n\n" +
+            greeting + "\n\n" +
+            "Here is the executive performance summary for the past 7 days:\n\n" +
+            "- Total Inquiries: " + total + "\n" +
+            "- Contact Rate: " + String.format("%.1f", contactRate) + "%\n" +
+            "- Conversion Rate: " + String.format("%.1f", convRate) + "%\n\n" +
+            "Log in to review: https://ssasaleshub.cloud/leads\n\n" +
+            "SSA Saleshub Operations Team\n";
+    }
+
+    private String formatStatusName(String raw) {
+        if (raw == null) return "Unknown";
+        return switch (raw.toUpperCase()) {
+            case "CREATED" -> "New Inquiries";
+            case "CONTACTED" -> "Contacted";
+            case "QUALIFIED" -> "Qualified";
+            case "PROPOSAL_SENT" -> "Proposal Sent";
+            case "NEGOTIATION" -> "Negotiation";
+            case "CONVERTED" -> "Converted";
+            case "WON" -> "Enrolled / Won";
+            case "LOST" -> "Disqualified / Lost";
+            default -> raw;
+        };
+    }
+
+    private String formatPlatformName(String raw) {
+        if (raw == null) return "Other";
+        return switch (raw.toUpperCase()) {
+            case "FB" -> "Meta Facebook";
+            case "IG" -> "Instagram";
+            case "WHATSAPP" -> "WhatsApp";
+            case "OTHER" -> "Direct / Other";
+            default -> raw;
+        };
+    }
+
+    private String buildCalendarReminderHtml(
+        String greeting,
+        String title,
+        String date,
+        String time,
+        String desc,
+        String candidate,
+        boolean isConfirmation
+    ) {
+        String heading = isConfirmation ? "Reminder Scheduled" : "Calendar Reminder";
+        String subTitle = isConfirmation ? "Schedule Confirmation" : "Calendar &amp; Follow-up Reminder";
+        String intro = isConfirmation
+            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:"
+            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
+          .append("<meta name='viewport' content='width=device-width,initial-scale=1.0'>")
+          .append("<meta name='format-detection' content='telephone=no'>")
+          .append("<title>SSA Saleshub - ").append(heading).append("</title>")
+          .append("<style>")
+          .append("@media only screen and (max-width: 600px) {")
+          .append(".email-wrapper { padding: 12px 6px !important; }")
+          .append(".email-card { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }")
+          .append(".header-box { padding: 14px 16px !important; }")
+          .append(".brand-title { font-size: 16px !important; }")
+          .append(".brand-sub { font-size: 10px !important; }")
+          .append(".body-box { padding: 20px 16px !important; }")
+          .append(".cta-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; padding: 12px 18px !important; }")
+          .append(".footer-box { padding: 16px 14px !important; }")
+          .append("}")
+          .append("</style></head>")
+          .append("<body style='margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' bgcolor='#f8fafc' class='email-wrapper' style='padding:24px 10px;margin:0 auto;width:100% !important;'><tr><td align='center'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' class='email-card' style='max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);'>")
+          // Brand Header with Emerald Gradient & Gold bottom stripe
+          .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
+          .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
+          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
+          .append("<td style='vertical-align:middle;padding-left:12px;'>")
+          .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
+          .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>").append(subTitle).append("</div>")
+          .append("</td></tr></table></td></tr>")
+          // Body Content - Directly on canvas, human design (no background card widgets)
+          .append("<tr><td class='body-box' style='padding:26px 24px 22px;'>")
+          .append("<h2 style='margin:0 0 6px;color:#065f46;font-size:20px;font-weight:700;letter-spacing:-0.3px;'>").append(heading).append("</h2>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 8px;'>").append(greeting).append("</p>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 18px;'>").append(intro).append("</p>")
+          // Details rows directly on canvas
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin:16px 0 24px;'>")
+          .append("<tr>")
+          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Event</td>")
+          .append("<td style='padding:10px 0;color:#0f172a;font-size:15px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(title).append("</td>")
+          .append("</tr><tr>")
+          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Schedule</td>")
+          .append("<td style='padding:10px 0;color:#047857;font-size:14px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(date).append(" &bull; ").append(time).append("</td>")
+          .append("</tr>");
+
+        if (candidate != null && !candidate.isBlank()) {
+            sb.append("<tr>")
+              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Candidate</td>")
+              .append("<td style='padding:10px 0;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;width:72%;'>").append(candidate).append("</td>")
+              .append("</tr>");
+        }
+
+        if (desc != null && !desc.isBlank()) {
+            sb.append("<tr>")
+              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Notes</td>")
+              .append("<td style='padding:10px 0;color:#334155;font-size:13px;line-height:1.5;border-bottom:1px solid #f1f5f9;width:72%;'>").append(desc).append("</td>")
+              .append("</tr>");
+        }
+
+        sb.append("</table>")
+          // Call To Action Button with Emerald Gradient
+          .append("<div style='text-align:center;margin:28px 0 18px;'>")
+          .append("<a href='https://ssasaleshub.cloud/calendar' class='cta-btn' style='display:inline-block;background:linear-gradient(135deg, #059669 0%, #047857 100%);color:#ffffff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Open Calendar in CRM &rarr;</a>")
+          .append("</div>")
+          .append("<p style='color:#64748b;font-size:12px;line-height:1.5;margin:16px 0 0;text-align:center;'>You received this notification because this reminder was scheduled in your SSA Saleshub account.</p>")
+          .append("</td></tr>")
+          // Brand Footer
+          .append("<tr><td class='footer-box' style='background:#f8fafc;padding:18px 24px;text-align:center;border-top:1px solid #e2e8f0;'>")
+          .append("<p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; ").append(LocalDateTime.now().getYear()).append(" ").append(BRAND_NAME)
+          .append("&nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>")
+          .append("<p style='margin:4px 0 0;color:#94a3b8;font-size:11px;'>This is an automated operational notification regarding your scheduled events. Please do not reply.</p>")
+          .append("</td></tr></table></td></tr></table></body></html>");
+
+        return sb.toString();
+    }
+
+    private String buildCalendarReminderPlainText(
+        String greeting,
+        String title,
+        String date,
+        String time,
+        String desc,
+        String candidate,
+        boolean isConfirmation
+    ) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("SSA Saleshub - ").append(isConfirmation ? "Reminder Scheduled" : "Calendar Reminder").append("\n\n");
+        sb.append(greeting).append("\n\n");
+        sb.append(isConfirmation
+            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:\n\n"
+            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:\n\n");
+        sb.append("Event: ").append(title != null ? title : "Calendar Event").append("\n");
+        sb.append("Schedule: ").append(date != null ? date : "Today").append(" at ").append(time != null ? time : "09:00 AM").append("\n");
+        if (candidate != null && !candidate.isBlank()) {
+            sb.append("Candidate: ").append(candidate).append("\n");
+        }
+        if (desc != null && !desc.isBlank()) {
+            sb.append("Notes: ").append(desc).append("\n");
+        }
+        sb.append("\nOpen Calendar in CRM: https://ssasaleshub.cloud/calendar\n\n");
+        sb.append("--\n");
+        sb.append("SSA Saleshub • ssasaleshub.cloud\n");
+        return sb.toString();
+    }
+
+    private String buildCalendarReminderHtml(
+        String greeting,
+        String title,
+        String date,
+        String time,
+        String desc,
+        String candidate,
+        boolean isConfirmation
+    ) {
+        String heading = isConfirmation ? "Reminder Scheduled" : "Calendar Reminder";
+        String subTitle = isConfirmation ? "Schedule Confirmation" : "Calendar &amp; Follow-up Reminder";
+        String intro = isConfirmation
+            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:"
+            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
+          .append("<meta name='viewport' content='width=device-width,initial-scale=1.0'>")
+          .append("<meta name='format-detection' content='telephone=no'>")
+          .append("<title>SSA Saleshub - ").append(heading).append("</title>")
+          .append("<style>")
+          .append("@media only screen and (max-width: 600px) {")
+          .append(".email-wrapper { padding: 12px 6px !important; }")
+          .append(".email-card { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }")
+          .append(".header-box { padding: 14px 16px !important; }")
+          .append(".brand-title { font-size: 16px !important; }")
+          .append(".brand-sub { font-size: 10px !important; }")
+          .append(".body-box { padding: 20px 16px !important; }")
+          .append(".cta-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; padding: 12px 18px !important; }")
+          .append(".footer-box { padding: 16px 14px !important; }")
+          .append("}")
+          .append("</style></head>")
+          .append("<body style='margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' bgcolor='#f8fafc' class='email-wrapper' style='padding:24px 10px;margin:0 auto;width:100% !important;'><tr><td align='center'>")
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' class='email-card' style='max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);'>")
+          // Brand Header with Emerald Gradient & Gold bottom stripe
+          .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
+          .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
+          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
+          .append("<td style='vertical-align:middle;padding-left:12px;'>")
+          .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
+          .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>").append(subTitle).append("</div>")
+          .append("</td></tr></table></td></tr>")
+          // Body Content - Directly on canvas, human design (no background card widgets)
+          .append("<tr><td class='body-box' style='padding:26px 24px 22px;'>")
+          .append("<h2 style='margin:0 0 6px;color:#065f46;font-size:20px;font-weight:700;letter-spacing:-0.3px;'>").append(heading).append("</h2>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 8px;'>").append(greeting).append("</p>")
+          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 18px;'>").append(intro).append("</p>")
+          // Details rows directly on canvas
+          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin:16px 0 24px;'>")
+          .append("<tr>")
+          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Event</td>")
+          .append("<td style='padding:10px 0;color:#0f172a;font-size:15px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(title).append("</td>")
+          .append("</tr><tr>")
+          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Schedule</td>")
+          .append("<td style='padding:10px 0;color:#047857;font-size:14px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(date).append(" &bull; ").append(time).append("</td>")
+          .append("</tr>");
+
+        if (candidate != null && !candidate.isBlank()) {
+            sb.append("<tr>")
+              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Candidate</td>")
+              .append("<td style='padding:10px 0;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;width:72%;'>").append(candidate).append("</td>")
+              .append("</tr>");
+        }
+
+        if (desc != null && !desc.isBlank()) {
+            sb.append("<tr>")
+              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Notes</td>")
+              .append("<td style='padding:10px 0;color:#334155;font-size:13px;line-height:1.5;border-bottom:1px solid #f1f5f9;width:72%;'>").append(desc).append("</td>")
+              .append("</tr>");
+        }
+
+        sb.append("</table>")
+          // Call To Action Button with Emerald Gradient
+          .append("<div style='text-align:center;margin:28px 0 18px;'>")
+          .append("<a href='https://ssasaleshub.cloud/calendar' class='cta-btn' style='display:inline-block;background:linear-gradient(135deg, #059669 0%, #047857 100%);color:#ffffff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Open Calendar in CRM &rarr;</a>")
+          .append("</div>")
+          .append("<p style='color:#64748b;font-size:12px;line-height:1.5;margin:16px 0 0;text-align:center;'>You received this notification because this reminder was scheduled in your SSA Saleshub account.</p>")
+          .append("</td></tr>")
+          // Brand Footer
+          .append("<tr><td class='footer-box' style='background:#f8fafc;padding:18px 24px;text-align:center;border-top:1px solid #e2e8f0;'>")
+          .append("<p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; ").append(LocalDateTime.now().getYear()).append(" ").append(BRAND_NAME)
+          .append("&nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>")
+          .append("<p style='margin:4px 0 0;color:#94a3b8;font-size:11px;'>This is an automated operational notification regarding your scheduled events. Please do not reply.</p>")
+          .append("</td></tr></table></td></tr></table></body></html>");
+
+        return sb.toString();
+    }
+
+    private String buildCalendarReminderPlainText(
+        String greeting,
+        String title,
+        String date,
+        String time,
+        String desc,
+        String candidate,
+        boolean isConfirmation
+    ) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("SSA Saleshub - ").append(isConfirmation ? "Reminder Scheduled" : "Calendar Reminder").append("\n\n");
+        sb.append(greeting).append("\n\n");
+        sb.append(isConfirmation
+            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:\n\n"
+            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:\n\n");
+        sb.append("Event: ").append(title != null ? title : "Calendar Event").append("\n");
+        sb.append("Schedule: ").append(date != null ? date : "Today").append(" at ").append(time != null ? time : "09:00 AM").append("\n");
+        if (candidate != null && !candidate.isBlank()) {
+            sb.append("Candidate: ").append(candidate).append("\n");
+        }
+        if (desc != null && !desc.isBlank()) {
+            sb.append("Notes: ").append(desc).append("\n");
+        }
+        sb.append("\nOpen Calendar in CRM: https://ssasaleshub.cloud/calendar\n\n");
+        sb.append("--\n");
+        sb.append("SSA Saleshub • ssasaleshub.cloud\n");
+        return sb.toString();
     }
 }

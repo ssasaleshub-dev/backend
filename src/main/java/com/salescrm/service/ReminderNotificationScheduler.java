@@ -5,6 +5,7 @@ import com.salescrm.domain.CrmNotification;
 import com.salescrm.domain.enumeration.LeadStatus;
 import com.salescrm.repository.CrmEventRepository;
 import com.salescrm.repository.CrmNotificationRepository;
+import com.salescrm.repository.UserRepository;
 import com.salescrm.service.dto.LeadDetailedDTO;
 import com.salescrm.service.util.LeadIdCrypto;
 import java.time.Instant;
@@ -44,6 +45,26 @@ public class ReminderNotificationScheduler {
     private final CrmNotificationService crmNotificationService;
     private final FirebasePushNotificationService firebasePushNotificationService;
     private final LeadDetailedService leadDetailedService;
+    private final UserRepository userRepository;
+    private final CrmEmailService crmEmailService;
+
+    public ReminderNotificationScheduler(
+        CrmEventRepository crmEventRepository,
+        CrmNotificationRepository crmNotificationRepository,
+        CrmNotificationService crmNotificationService,
+        FirebasePushNotificationService firebasePushNotificationService,
+        LeadDetailedService leadDetailedService,
+        UserRepository userRepository,
+        CrmEmailService crmEmailService
+    ) {
+        this.crmEventRepository = crmEventRepository;
+        this.crmNotificationRepository = crmNotificationRepository;
+        this.crmNotificationService = crmNotificationService;
+        this.firebasePushNotificationService = firebasePushNotificationService;
+        this.leadDetailedService = leadDetailedService;
+        this.userRepository = userRepository;
+        this.crmEmailService = crmEmailService;
+    }
 
     public ReminderNotificationScheduler(
         CrmEventRepository crmEventRepository,
@@ -52,11 +73,7 @@ public class ReminderNotificationScheduler {
         FirebasePushNotificationService firebasePushNotificationService,
         LeadDetailedService leadDetailedService
     ) {
-        this.crmEventRepository = crmEventRepository;
-        this.crmNotificationRepository = crmNotificationRepository;
-        this.crmNotificationService = crmNotificationService;
-        this.firebasePushNotificationService = firebasePushNotificationService;
-        this.leadDetailedService = leadDetailedService;
+        this(crmEventRepository, crmNotificationRepository, crmNotificationService, firebasePushNotificationService, leadDetailedService, null, null);
     }
 
     /**
@@ -89,10 +106,9 @@ public class ReminderNotificationScheduler {
                 event.setNotificationSent(Boolean.TRUE);
 
                 String rawCandidate = event.getCandidateName();
-                String cleanCandidate = null;
-                if (rawCandidate != null && !rawCandidate.isBlank()) {
-                    cleanCandidate = rawCandidate.replaceFirst("(?i)^Candidate:\\s*", "").trim();
-                }
+                final String cleanCandidate = (rawCandidate != null && !rawCandidate.isBlank())
+                    ? rawCandidate.replaceFirst("(?i)^Candidate:\\s*", "").trim()
+                    : null;
 
                 String title = event.getTitle();
                 String timeStr = event.getEventTime() != null ? TIME_12H_FORMATTER.format(event.getEventTime()) : "today";
@@ -153,6 +169,35 @@ public class ReminderNotificationScheduler {
                                         message,
                                         data
                                     );
+                                }
+                                if (crmEmailService != null && userRepository != null && targetUserId != null) {
+                                    final String candidateForEmail = cleanCandidate;
+                                    userRepository.findOneByLogin(targetUserId)
+                                        .switchIfEmpty(userRepository.findOneByEmailIgnoreCase(targetUserId))
+                                        .flatMap(user -> {
+                                            if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                                                String userName = (user.getFirstName() != null && !user.getFirstName().isBlank())
+                                                    ? user.getFirstName()
+                                                    : user.getLogin();
+                                                String dateStr = event.getEventDate() != null ? DATE_FORMATTER.format(event.getEventDate()) : "Today";
+                                                return crmEmailService.sendCalendarReminderEmail(
+                                                    user.getEmail(),
+                                                    userName,
+                                                    title,
+                                                    dateStr,
+                                                    timeStr,
+                                                    event.getDescription(),
+                                                    candidateForEmail,
+                                                    false
+                                                );
+                                            }
+                                            return Mono.empty();
+                                        })
+                                        .onErrorResume(err -> {
+                                            LOG.warn("Failed to dispatch calendar reminder email for user {}: {}", targetUserId, err.getMessage());
+                                            return Mono.empty();
+                                        })
+                                        .subscribe();
                                 }
                             });
                     });
