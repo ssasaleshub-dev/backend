@@ -793,6 +793,15 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         };
     }
 
+    private String escapeHtml(String input) {
+        if (input == null) return "";
+        return input.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#39;");
+    }
+
     private String buildCalendarReminderHtml(
         String greeting,
         String title,
@@ -807,6 +816,10 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String intro = isConfirmation
             ? "You have successfully scheduled a calendar reminder in SSA Saleshub:"
             : "This is a reminder for your upcoming scheduled event in SSA Saleshub:";
+
+        String safeTitle = escapeHtml(title);
+        String safeCandidate = (candidate != null && !candidate.isBlank()) ? escapeHtml(candidate) : null;
+        String safeDesc = (desc != null && !desc.isBlank()) ? escapeHtml(desc) : null;
 
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
@@ -841,145 +854,27 @@ public class CrmEmailServiceImpl implements CrmEmailService {
           .append("<h2 style='margin:0 0 6px;color:#065f46;font-size:20px;font-weight:700;letter-spacing:-0.3px;'>").append(heading).append("</h2>")
           .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 8px;'>").append(greeting).append("</p>")
           .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 18px;'>").append(intro).append("</p>")
-          // Details rows directly on canvas
+          // Details rows directly on canvas - 100% dynamic user values
           .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin:16px 0 24px;'>")
           .append("<tr>")
           .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Event</td>")
-          .append("<td style='padding:10px 0;color:#0f172a;font-size:15px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(title).append("</td>")
+          .append("<td style='padding:10px 0;color:#0f172a;font-size:15px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(safeTitle).append("</td>")
           .append("</tr><tr>")
           .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Schedule</td>")
           .append("<td style='padding:10px 0;color:#047857;font-size:14px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(date).append(" &bull; ").append(time).append("</td>")
           .append("</tr>");
 
-        if (candidate != null && !candidate.isBlank()) {
+        if (safeCandidate != null) {
             sb.append("<tr>")
               .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Candidate</td>")
-              .append("<td style='padding:10px 0;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;width:72%;'>").append(candidate).append("</td>")
+              .append("<td style='padding:10px 0;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;width:72%;'>").append(safeCandidate).append("</td>")
               .append("</tr>");
         }
 
-        if (desc != null && !desc.isBlank()) {
+        if (safeDesc != null) {
             sb.append("<tr>")
               .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Notes</td>")
-              .append("<td style='padding:10px 0;color:#334155;font-size:13px;line-height:1.5;border-bottom:1px solid #f1f5f9;width:72%;'>").append(desc).append("</td>")
-              .append("</tr>");
-        }
-
-        sb.append("</table>")
-          // Call To Action Button with Emerald Gradient
-          .append("<div style='text-align:center;margin:28px 0 18px;'>")
-          .append("<a href='https://ssasaleshub.cloud/calendar' class='cta-btn' style='display:inline-block;background:linear-gradient(135deg, #059669 0%, #047857 100%);color:#ffffff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Open Calendar in CRM &rarr;</a>")
-          .append("</div>")
-          .append("<p style='color:#64748b;font-size:12px;line-height:1.5;margin:16px 0 0;text-align:center;'>You received this notification because this reminder was scheduled in your SSA Saleshub account.</p>")
-          .append("</td></tr>")
-          // Brand Footer
-          .append("<tr><td class='footer-box' style='background:#f8fafc;padding:18px 24px;text-align:center;border-top:1px solid #e2e8f0;'>")
-          .append("<p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; ").append(LocalDateTime.now().getYear()).append(" ").append(BRAND_NAME)
-          .append("&nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>")
-          .append("<p style='margin:4px 0 0;color:#94a3b8;font-size:11px;'>This is an automated operational notification regarding your scheduled events. Please do not reply.</p>")
-          .append("</td></tr></table></td></tr></table></body></html>");
-
-        return sb.toString();
-    }
-
-    private String buildCalendarReminderPlainText(
-        String greeting,
-        String title,
-        String date,
-        String time,
-        String desc,
-        String candidate,
-        boolean isConfirmation
-    ) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("SSA Saleshub - ").append(isConfirmation ? "Reminder Scheduled" : "Calendar Reminder").append("\n\n");
-        sb.append(greeting).append("\n\n");
-        sb.append(isConfirmation
-            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:\n\n"
-            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:\n\n");
-        sb.append("Event: ").append(title != null ? title : "Calendar Event").append("\n");
-        sb.append("Schedule: ").append(date != null ? date : "Today").append(" at ").append(time != null ? time : "09:00 AM").append("\n");
-        if (candidate != null && !candidate.isBlank()) {
-            sb.append("Candidate: ").append(candidate).append("\n");
-        }
-        if (desc != null && !desc.isBlank()) {
-            sb.append("Notes: ").append(desc).append("\n");
-        }
-        sb.append("\nOpen Calendar in CRM: https://ssasaleshub.cloud/calendar\n\n");
-        sb.append("--\n");
-        sb.append("SSA Saleshub • ssasaleshub.cloud\n");
-        return sb.toString();
-    }
-
-    private String buildCalendarReminderHtml(
-        String greeting,
-        String title,
-        String date,
-        String time,
-        String desc,
-        String candidate,
-        boolean isConfirmation
-    ) {
-        String heading = isConfirmation ? "Reminder Scheduled" : "Calendar Reminder";
-        String subTitle = isConfirmation ? "Schedule Confirmation" : "Calendar &amp; Follow-up Reminder";
-        String intro = isConfirmation
-            ? "You have successfully scheduled a calendar reminder in SSA Saleshub:"
-            : "This is a reminder for your upcoming scheduled event in SSA Saleshub:";
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
-          .append("<meta name='viewport' content='width=device-width,initial-scale=1.0'>")
-          .append("<meta name='format-detection' content='telephone=no'>")
-          .append("<title>SSA Saleshub - ").append(heading).append("</title>")
-          .append("<style>")
-          .append("@media only screen and (max-width: 600px) {")
-          .append(".email-wrapper { padding: 12px 6px !important; }")
-          .append(".email-card { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }")
-          .append(".header-box { padding: 14px 16px !important; }")
-          .append(".brand-title { font-size: 16px !important; }")
-          .append(".brand-sub { font-size: 10px !important; }")
-          .append(".body-box { padding: 20px 16px !important; }")
-          .append(".cta-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; padding: 12px 18px !important; }")
-          .append(".footer-box { padding: 16px 14px !important; }")
-          .append("}")
-          .append("</style></head>")
-          .append("<body style='margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#222222;-webkit-font-smoothing:antialiased;'>")
-          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' bgcolor='#f8fafc' class='email-wrapper' style='padding:24px 10px;margin:0 auto;width:100% !important;'><tr><td align='center'>")
-          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' class='email-card' style='max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);'>")
-          // Brand Header with Emerald Gradient & Gold bottom stripe
-          .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
-          .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
-          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
-          .append("<td style='vertical-align:middle;padding-left:12px;'>")
-          .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
-          .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>").append(subTitle).append("</div>")
-          .append("</td></tr></table></td></tr>")
-          // Body Content - Directly on canvas, human design (no background card widgets)
-          .append("<tr><td class='body-box' style='padding:26px 24px 22px;'>")
-          .append("<h2 style='margin:0 0 6px;color:#065f46;font-size:20px;font-weight:700;letter-spacing:-0.3px;'>").append(heading).append("</h2>")
-          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 8px;'>").append(greeting).append("</p>")
-          .append("<p style='color:#475569;font-size:14px;line-height:1.5;margin:0 0 18px;'>").append(intro).append("</p>")
-          // Details rows directly on canvas
-          .append("<table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin:16px 0 24px;'>")
-          .append("<tr>")
-          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Event</td>")
-          .append("<td style='padding:10px 0;color:#0f172a;font-size:15px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(title).append("</td>")
-          .append("</tr><tr>")
-          .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Schedule</td>")
-          .append("<td style='padding:10px 0;color:#047857;font-size:14px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>").append(date).append(" &bull; ").append(time).append("</td>")
-          .append("</tr>");
-
-        if (candidate != null && !candidate.isBlank()) {
-            sb.append("<tr>")
-              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Candidate</td>")
-              .append("<td style='padding:10px 0;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;width:72%;'>").append(candidate).append("</td>")
-              .append("</tr>");
-        }
-
-        if (desc != null && !desc.isBlank()) {
-            sb.append("<tr>")
-              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Notes</td>")
-              .append("<td style='padding:10px 0;color:#334155;font-size:13px;line-height:1.5;border-bottom:1px solid #f1f5f9;width:72%;'>").append(desc).append("</td>")
+              .append("<td style='padding:10px 0;color:#334155;font-size:13px;line-height:1.5;border-bottom:1px solid #f1f5f9;width:72%;'>").append(safeDesc).append("</td>")
               .append("</tr>");
         }
 

@@ -12,6 +12,8 @@ import com.salescrm.service.util.LeadIdCrypto;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +34,9 @@ import tech.jhipster.web.util.reactive.ResponseUtil;
 public class EventResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(EventResource.class);
+    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Kolkata");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy").withZone(DEFAULT_ZONE);
+    private static final DateTimeFormatter TIME_12H_FORMATTER = DateTimeFormatter.ofPattern("hh:mm a").withZone(DEFAULT_ZONE);
 
     private final CrmEventService crmEventService;
     private final LeadActivityService leadActivityService;
@@ -187,8 +192,8 @@ public class EventResource {
                                         String userName = (user.getFirstName() != null && !user.getFirstName().isBlank())
                                             ? user.getFirstName()
                                             : user.getLogin();
-                                        String dateStr = result.getEventDate() != null ? result.getEventDate().toString() : "Today";
-                                        String timeStr = result.getEventTime() != null ? result.getEventTime().toString() : "09:00 AM";
+                                        String dateStr = result.getEventDate() != null ? DATE_FORMATTER.format(result.getEventDate()) : "Today";
+                                        String timeStr = result.getEventTime() != null ? TIME_12H_FORMATTER.format(result.getEventTime()) : "09:00 AM";
                                         return crmEmailService.sendCalendarReminderEmail(
                                             user.getEmail(),
                                             userName,

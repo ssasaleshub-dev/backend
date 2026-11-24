@@ -171,33 +171,42 @@ public class ReminderNotificationScheduler {
                                     );
                                 }
                                 if (crmEmailService != null && userRepository != null && targetUserId != null) {
-                                    final String candidateForEmail = cleanCandidate;
-                                    userRepository.findOneByLogin(targetUserId)
-                                        .switchIfEmpty(userRepository.findOneByEmailIgnoreCase(targetUserId))
-                                        .flatMap(user -> {
-                                            if (user.getEmail() != null && !user.getEmail().isBlank()) {
-                                                String userName = (user.getFirstName() != null && !user.getFirstName().isBlank())
-                                                    ? user.getFirstName()
-                                                    : user.getLogin();
-                                                String dateStr = event.getEventDate() != null ? DATE_FORMATTER.format(event.getEventDate()) : "Today";
-                                                return crmEmailService.sendCalendarReminderEmail(
-                                                    user.getEmail(),
-                                                    userName,
-                                                    title,
-                                                    dateStr,
-                                                    timeStr,
-                                                    event.getDescription(),
-                                                    candidateForEmail,
-                                                    false
-                                                );
-                                            }
-                                            return Mono.empty();
-                                        })
-                                        .onErrorResume(err -> {
-                                            LOG.warn("Failed to dispatch calendar reminder email for user {}: {}", targetUserId, err.getMessage());
-                                            return Mono.empty();
-                                        })
-                                        .subscribe();
+                                    Mono<String> candidateResolver = (cleanCandidate != null && !cleanCandidate.isBlank())
+                                        ? Mono.just(cleanCandidate)
+                                        : (event.getCandidateId() != null && leadDetailedService != null
+                                            ? leadDetailedService.findDetailedById(event.getCandidateId())
+                                                .map(dto -> dto.getCustomerName() != null ? dto.getCustomerName() : "")
+                                                .defaultIfEmpty("")
+                                            : Mono.just(""));
+
+                                    candidateResolver.flatMap(resolvedCandidate ->
+                                        userRepository.findOneByLogin(targetUserId)
+                                            .switchIfEmpty(userRepository.findOneByEmailIgnoreCase(targetUserId))
+                                            .flatMap(user -> {
+                                                if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                                                    String userName = (user.getFirstName() != null && !user.getFirstName().isBlank())
+                                                        ? user.getFirstName()
+                                                        : user.getLogin();
+                                                    String dateStr = event.getEventDate() != null ? DATE_FORMATTER.format(event.getEventDate()) : "Today";
+                                                    return crmEmailService.sendCalendarReminderEmail(
+                                                        user.getEmail(),
+                                                        userName,
+                                                        title,
+                                                        dateStr,
+                                                        timeStr,
+                                                        event.getDescription(),
+                                                        resolvedCandidate,
+                                                        false
+                                                    );
+                                                }
+                                                return Mono.empty();
+                                            })
+                                    )
+                                    .onErrorResume(err -> {
+                                        LOG.warn("Failed to dispatch calendar reminder email for user {}: {}", targetUserId, err.getMessage());
+                                        return Mono.empty();
+                                    })
+                                    .subscribe();
                                 }
                             });
                     });
