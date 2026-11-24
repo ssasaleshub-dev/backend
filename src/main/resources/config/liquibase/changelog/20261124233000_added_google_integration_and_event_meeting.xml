@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261124233000-1" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="user_google_integrations"/>
+            </not>
+        </preConditions>
+        <createTable tableName="user_google_integrations">
+            <column name="id" type="bigint" autoIncrement="true" startWith="1000">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="google_email" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="access_token" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="refresh_token" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="token_expiry" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="scopes" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="user_google_integrations"
+            columnNames="user_id"
+            constraintName="ux_user_google_integrations__user_id"/>
+
+        <createIndex tableName="user_google_integrations" indexName="idx_user_google_integrations__user_id">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261124233000-2" author="salescrm">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="crm_events_reminders"/>
+                <not>
+                    <columnExists tableName="crm_events_reminders" columnName="meeting_link"/>
+                </not>
+            </and>
+        </preConditions>
+        <addColumn tableName="crm_events_reminders">
+            <column name="meeting_link" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
+

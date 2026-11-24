@@ -92,6 +92,20 @@ public interface CrmEmailService {
         String eventDate,
         String eventTime,
         String description,
+        String candidateName,
+        String meetingLink,
+        boolean isScheduledConfirmation
+    ) {
+        return sendCalendarReminderEmail(toEmail, userName, eventTitle, eventDate, eventTime, description, candidateName, isScheduledConfirmation);
+    }
+
+    default Mono<Void> sendCalendarReminderEmail(
+        String toEmail,
+        String userName,
+        String eventTitle,
+        String eventDate,
+        String eventTime,
+        String description,
         String candidateName
     ) {
         return sendCalendarReminderEmail(toEmail, userName, eventTitle, eventDate, eventTime, description, candidateName, false);

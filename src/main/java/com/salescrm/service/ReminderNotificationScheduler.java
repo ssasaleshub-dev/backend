@@ -188,6 +188,7 @@ public class ReminderNotificationScheduler {
                                                         timeStr,
                                                         event.getDescription(),
                                                         resolvedCandidate,
+                                                        event.getMeetingLink(),
                                                         false
                                                     );
                                                 }

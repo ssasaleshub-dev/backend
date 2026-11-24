@@ -67,6 +67,9 @@ public class CrmEvent implements Serializable, Persistable<UUID> {
     @Column("remind_before_minutes")
     private Integer remindBeforeMinutes = 15;
 
+    @Column("meeting_link")
+    private String meetingLink;
+
     @Column("created_at")
     private Instant createdAt = Instant.now();
 
@@ -192,6 +195,14 @@ public class CrmEvent implements Serializable, Persistable<UUID> {
 
     public void setRemindBeforeMinutes(Integer remindBeforeMinutes) {
         this.remindBeforeMinutes = remindBeforeMinutes;
+    }
+
+    public String getMeetingLink() {
+        return meetingLink;
+    }
+
+    public void setMeetingLink(String meetingLink) {
+        this.meetingLink = meetingLink;
     }
 
     public Instant getCreatedAt() {

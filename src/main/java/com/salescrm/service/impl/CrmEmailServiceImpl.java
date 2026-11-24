@@ -320,6 +320,21 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String candidateName,
         boolean isScheduledConfirmation
     ) {
+        return sendCalendarReminderEmail(toEmail, userName, eventTitle, eventDate, eventTime, description, candidateName, null, isScheduledConfirmation);
+    }
+
+    @Override
+    public Mono<Void> sendCalendarReminderEmail(
+        String toEmail,
+        String userName,
+        String eventTitle,
+        String eventDate,
+        String eventTime,
+        String description,
+        String candidateName,
+        String meetingLink,
+        boolean isScheduledConfirmation
+    ) {
         return Mono.fromRunnable(() -> {
             String greeting = resolveGreeting(userName);
             String title = (eventTitle != null && !eventTitle.isBlank()) ? eventTitle.trim() : "Calendar Event";
@@ -335,8 +350,8 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                 ? "[SSA Saleshub] Reminder Scheduled: " + title
                 : "[SSA Saleshub] Reminder: " + title;
 
-            String htmlBody = buildCalendarReminderHtml(greeting, title, date, time, description, cleanCandidate, isScheduledConfirmation);
-            String plainText = buildCalendarReminderPlainText(greeting, title, date, time, description, cleanCandidate, isScheduledConfirmation);
+            String htmlBody = buildCalendarReminderHtml(greeting, title, date, time, description, cleanCandidate, meetingLink, isScheduledConfirmation);
+            String plainText = buildCalendarReminderPlainText(greeting, title, date, time, description, cleanCandidate, meetingLink, isScheduledConfirmation);
 
             doSend(toEmail, null, subject, plainText, htmlBody, true);
         }).subscribeOn(Schedulers.boundedElastic()).then();
@@ -809,6 +824,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String time,
         String desc,
         String candidate,
+        String meetingLink,
         boolean isConfirmation
     ) {
         String heading = isConfirmation ? "Reminder Scheduled" : "Calendar Reminder";
@@ -820,6 +836,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String safeTitle = escapeHtml(title);
         String safeCandidate = (candidate != null && !candidate.isBlank()) ? escapeHtml(candidate) : null;
         String safeDesc = (desc != null && !desc.isBlank()) ? escapeHtml(desc) : null;
+        String safeMeetingLink = (meetingLink != null && !meetingLink.isBlank()) ? escapeHtml(meetingLink) : null;
 
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
@@ -871,6 +888,14 @@ public class CrmEmailServiceImpl implements CrmEmailService {
               .append("</tr>");
         }
 
+        if (safeMeetingLink != null) {
+            sb.append("<tr>")
+              .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Google Meet</td>")
+              .append("<td style='padding:10px 0;font-size:14px;font-weight:700;border-bottom:1px solid #f1f5f9;width:72%;'>")
+              .append("<a href='").append(safeMeetingLink).append("' target='_blank' style='color:#0284c7;text-decoration:none;'>Join Video Meeting &rarr;</a>")
+              .append("</td></tr>");
+        }
+
         if (safeDesc != null) {
             sb.append("<tr>")
               .append("<td style='padding:10px 0;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:28%;vertical-align:top;'>Notes</td>")
@@ -878,9 +903,16 @@ public class CrmEmailServiceImpl implements CrmEmailService {
               .append("</tr>");
         }
 
-        sb.append("</table>")
-          // Call To Action Button with Emerald Gradient
-          .append("<div style='text-align:center;margin:28px 0 18px;'>")
+        sb.append("</table>");
+
+        // Action Buttons
+        if (safeMeetingLink != null) {
+            sb.append("<div style='text-align:center;margin:20px 0 10px;'>")
+              .append("<a href='").append(safeMeetingLink).append("' class='cta-btn' target='_blank' style='display:inline-block;background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Join Google Meet &rarr;</a>")
+              .append("</div>");
+        }
+
+        sb.append("<div style='text-align:center;margin:").append(safeMeetingLink != null ? "8px" : "28px").append(" 0 18px;'>")
           .append("<a href='https://ssasaleshub.cloud/calendar' class='cta-btn' style='display:inline-block;background:linear-gradient(135deg, #059669 0%, #047857 100%);color:#ffffff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.3px;'>Open Calendar in CRM &rarr;</a>")
           .append("</div>")
           .append("<p style='color:#64748b;font-size:12px;line-height:1.5;margin:16px 0 0;text-align:center;'>You received this notification because this reminder was scheduled in your SSA Saleshub account.</p>")
@@ -902,6 +934,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String time,
         String desc,
         String candidate,
+        String meetingLink,
         boolean isConfirmation
     ) {
         StringBuilder sb = new StringBuilder();
@@ -914,6 +947,9 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         sb.append("Schedule: ").append(date != null ? date : "Today").append(" at ").append(time != null ? time : "09:00 AM").append("\n");
         if (candidate != null && !candidate.isBlank()) {
             sb.append("Candidate: ").append(candidate).append("\n");
+        }
+        if (meetingLink != null && !meetingLink.isBlank()) {
+            sb.append("Google Meet: ").append(meetingLink).append("\n");
         }
         if (desc != null && !desc.isBlank()) {
             sb.append("Notes: ").append(desc).append("\n");

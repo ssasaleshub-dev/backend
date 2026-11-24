@@ -12,6 +12,7 @@ import com.salescrm.service.util.LeadIdCrypto;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -44,6 +45,7 @@ public class EventResource {
     private final LeadAccessService leadAccessService;
     private final CrmEmailService crmEmailService;
     private final UserRepository userRepository;
+    private final com.salescrm.service.GoogleIntegrationService googleIntegrationService;
 
     @Autowired
     public EventResource(
@@ -52,7 +54,8 @@ public class EventResource {
         @Autowired(required = false) FirebasePushNotificationService firebasePushNotificationService,
         LeadAccessService leadAccessService,
         @Autowired(required = false) CrmEmailService crmEmailService,
-        @Autowired(required = false) UserRepository userRepository
+        @Autowired(required = false) UserRepository userRepository,
+        @Autowired(required = false) com.salescrm.service.GoogleIntegrationService googleIntegrationService
     ) {
         this.crmEventService = crmEventService;
         this.leadActivityService = leadActivityService;
@@ -60,6 +63,7 @@ public class EventResource {
         this.leadAccessService = leadAccessService;
         this.crmEmailService = crmEmailService;
         this.userRepository = userRepository;
+        this.googleIntegrationService = googleIntegrationService;
     }
 
     public EventResource(
@@ -68,7 +72,7 @@ public class EventResource {
         FirebasePushNotificationService firebasePushNotificationService,
         LeadAccessService leadAccessService
     ) {
-        this(crmEventService, leadActivityService, firebasePushNotificationService, leadAccessService, null, null);
+        this(crmEventService, leadActivityService, firebasePushNotificationService, leadAccessService, null, null, null);
     }
 
     /**
@@ -169,8 +173,29 @@ public class EventResource {
 
         return userResolver.flatMap(userId -> {
             event.setUserId(userId);
-            return crmEventService
-                .createEvent(event)
+
+            Mono<CrmEvent> meetEnhancer = Mono.just(event);
+            if ((event.getMeetingLink() == null || event.getMeetingLink().isBlank()) && googleIntegrationService != null) {
+                String type = event.getEventType() != null ? event.getEventType().toUpperCase() : "";
+                String title = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
+                if (type.contains("MEET") || type.contains("DEMO") || type.contains("CONSULT") || title.contains("meet") || title.contains("demo")) {
+                    Instant startInstant = (event.getEventDate() != null && event.getEventTime() != null)
+                        ? event.getEventDate().atTime(event.getEventTime()).atZone(DEFAULT_ZONE).toInstant()
+                        : Instant.now().plusSeconds(600);
+                    Instant endInstant = startInstant.plusSeconds(1800);
+                    meetEnhancer = googleIntegrationService
+                        .createGoogleMeet(userId, event.getTitle(), event.getDescription(), startInstant, endInstant)
+                        .map(meetLink -> {
+                            event.setMeetingLink(meetLink);
+                            return event;
+                        })
+                        .defaultIfEmpty(event)
+                        .onErrorReturn(event);
+                }
+            }
+
+            return meetEnhancer.flatMap(ev -> crmEventService
+                .createEvent(ev)
                 .map(result -> {
                     try {
                         if (leadActivityService != null && result.getCandidateId() != null) {
@@ -202,6 +227,7 @@ public class EventResource {
                                             timeStr,
                                             result.getDescription(),
                                             result.getCandidateName(),
+                                            result.getMeetingLink(),
                                             true
                                         );
                                     }
@@ -218,7 +244,7 @@ public class EventResource {
                     } catch (URISyntaxException e) {
                         throw new RuntimeException(e);
                     }
-                });
+                }));
         });
     }
 

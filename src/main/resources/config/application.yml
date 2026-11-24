@@ -207,6 +207,10 @@ application:
     page-access-token: "${FB_PAGE_ACCESS_TOKEN:EAAQyPfrBFAUBTP5FPDyNDH0nvfZAJSR3LXXRaVn13GQ1pwrwE7QZBhDkpqrd9m3RYIpo2O9lsGSZBhey5EQl1byXYZAHwiXMjJZCmeRybMkAHIGV3Lr2tutjSslB5yRyFeDWJ6TQyEO6hhyvOEn9Sz8HkhNgy7DkhOsfkGFuG78JAu5jiTpcuVcP4B50q}"
     graph-api-version: "${FB_GRAPH_API_VERSION:v21.0}"
     graph-api-base-url: "${FB_GRAPH_API_BASE_URL:https://graph.facebook.com}"
+  google:
+    client-id: "${GOOGLE_CLIENT_ID:}"
+    client-secret: "${GOOGLE_CLIENT_SECRET:}"
+    redirect-uri: "${GOOGLE_REDIRECT_URI:https://ssasaleshub.cloud/api/integrations/google/callback}"
 
 cloudflare:
   r2:

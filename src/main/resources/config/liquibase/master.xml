@@ -41,4 +41,5 @@
     <include file="config/liquibase/changelog/20261122120000_rename_lead_preference_payment_columns.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261122200000_added_attendance_verification.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261123000000_added_lead_meta_data.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261124233000_added_google_integration_and_event_meeting.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

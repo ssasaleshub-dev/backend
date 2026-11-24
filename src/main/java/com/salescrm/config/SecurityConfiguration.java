@@ -78,6 +78,9 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/account/reset-password/finish").permitAll()
                     // Facebook lead webhooks are verified by FacebookWebhookVerificationService
                     .pathMatchers("/api/webhooks/**").permitAll()
+                    // Google OAuth callback and auth-url
+                    .pathMatchers("/api/integrations/google/callback").permitAll()
+                    .pathMatchers("/api/integrations/google/auth-url").permitAll()
                     // All CRM data (leads, customers, preferences, events, notifications, chat, files,
                     // attendance) requires a logged-in user; per-lead and per-owner rules are enforced
                     // in the resources via LeadAccessService.
