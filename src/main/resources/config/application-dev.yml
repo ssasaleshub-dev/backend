@@ -36,8 +36,20 @@ spring:
     user: salesCRM
     password: salesCRM
   mail:
-    host: localhost
-    port: 25
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:ssasaleshub@gmail.com}
+    password: ${MAIL_PASSWORD:zxjthqweojkgudsy}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
   messages:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   r2dbc:

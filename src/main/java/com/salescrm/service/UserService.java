@@ -9,11 +9,15 @@ import com.salescrm.security.AuthoritiesConstants;
 import com.salescrm.security.SecurityUtils;
 import com.salescrm.service.dto.AdminUserDTO;
 import com.salescrm.service.dto.UserDTO;
+import com.salescrm.web.rest.errors.BadRequestAlertException;
+import com.salescrm.web.rest.errors.InvalidPasswordException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +37,11 @@ import tech.jhipster.security.RandomUtil;
 public class UserService {
 
     private static final Logger LOG = LoggerFactory.getLogger(UserService.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    public static String generateOtp() {
+        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+    }
 
     private final UserRepository userRepository;
 
@@ -63,9 +72,13 @@ public class UserService {
     @Transactional
     public Mono<User> completePasswordReset(String newPassword, String key) {
         LOG.debug("Reset user password for reset key {}", key);
+        if (key == null || StringUtils.isBlank(key)) {
+            return Mono.empty();
+        }
+        String cleanKey = key.trim();
         return userRepository
-            .findOneByResetKey(key)
-            .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
+            .findOneByResetKey(cleanKey)
+            .filter(user -> user.getResetDate() != null && user.getResetDate().isAfter(Instant.now().minus(30, ChronoUnit.MINUTES)))
             .publishOn(Schedulers.boundedElastic())
             .map(user -> {
                 user.setPassword(passwordEncoder.encode(newPassword));
@@ -78,12 +91,17 @@ public class UserService {
 
     @Transactional
     public Mono<User> requestPasswordReset(String mail) {
+        if (mail == null || StringUtils.isBlank(mail)) {
+            return Mono.empty();
+        }
+        String cleanQuery = mail.trim();
         return userRepository
-            .findOneByEmailIgnoreCase(mail)
+            .findOneByEmailIgnoreCase(cleanQuery)
+            .switchIfEmpty(userRepository.findOneByLogin(cleanQuery.toLowerCase()))
             .filter(User::isActivated)
             .publishOn(Schedulers.boundedElastic())
             .map(user -> {
-                user.setResetKey(RandomUtil.generateResetKey());
+                user.setResetKey(generateOtp());
                 user.setResetDate(Instant.now());
                 return user;
             })
@@ -271,22 +289,48 @@ public class UserService {
     }
 
     @Transactional
-    public Mono<Void> changePassword(String currentClearTextPassword, String newPassword) {
+    public Mono<User> requestChangePasswordOtp() {
         return SecurityUtils.getCurrentUserLogin()
             .flatMap(userRepository::findOneByLogin)
             .publishOn(Schedulers.boundedElastic())
             .map(user -> {
+                user.setResetKey(generateOtp());
+                user.setResetDate(Instant.now());
+                return user;
+            })
+            .flatMap(this::saveUser);
+    }
+
+    @Transactional
+    public Mono<Void> changePassword(String currentClearTextPassword, String newPassword, String otp) {
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .publishOn(Schedulers.boundedElastic())
+            .map(user -> {
+                if (otp == null || StringUtils.isBlank(otp) || user.getResetKey() == null || !user.getResetKey().equals(otp.trim())) {
+                    throw new BadRequestAlertException("Invalid verification OTP entered", "account", "invalidotp");
+                }
+                if (user.getResetDate() == null || user.getResetDate().isBefore(Instant.now().minus(30, ChronoUnit.MINUTES))) {
+                    throw new BadRequestAlertException("Verification OTP has expired. Please request a new OTP", "account", "otpexpired");
+                }
                 String currentEncryptedPassword = user.getPassword();
                 if (!passwordEncoder.matches(currentClearTextPassword, currentEncryptedPassword)) {
                     throw new InvalidPasswordException();
                 }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                user.setResetKey(null);
+                user.setResetDate(null);
                 return user;
             })
             .flatMap(this::saveUser)
             .doOnNext(user -> LOG.debug("Changed password for User: {}", user))
             .then();
+    }
+
+    @Transactional
+    public Mono<Void> changePassword(String currentClearTextPassword, String newPassword) {
+        return changePassword(currentClearTextPassword, newPassword, null);
     }
 
     @Transactional(readOnly = true)

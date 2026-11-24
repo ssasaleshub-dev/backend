@@ -8,9 +8,11 @@ import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FacebookLeadService;
 import com.salescrm.service.FirebasePushNotificationService;
 import com.salescrm.service.LeadActivityService;
+import com.salescrm.service.LeadBatchNotificationService;
 import com.salescrm.service.client.FacebookGraphApiClient;
 import com.salescrm.service.dto.ExcelLeadRowDTO;
 import com.salescrm.service.dto.LeadActivityDTO;
+import com.salescrm.service.dto.LeadBatchItemDTO;
 import com.salescrm.service.dto.facebook.FacebookWebhookPayloadDTO;
 import com.salescrm.service.mapper.FacebookLeadMapper;
 import com.salescrm.service.util.DateTimeParser;
@@ -51,6 +53,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     private final FirebasePushNotificationService pushNotificationService;
     private final CrmNotificationService crmNotificationService;
     private final UserRepository userRepository;
+    private final LeadBatchNotificationService leadBatchNotificationService;
 
     public FacebookLeadServiceImpl(
         FacebookGraphApiClient graphApiClient,
@@ -81,6 +84,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             leadActivityService,
             null,
             null,
+            null,
             null
         );
     }
@@ -101,7 +105,8 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         @Autowired(required = false) LeadActivityService leadActivityService,
         @Autowired(required = false) FirebasePushNotificationService pushNotificationService,
         @Autowired(required = false) CrmNotificationService crmNotificationService,
-        @Autowired(required = false) UserRepository userRepository
+        @Autowired(required = false) UserRepository userRepository,
+        @Autowired(required = false) LeadBatchNotificationService leadBatchNotificationService
     ) {
         this.graphApiClient = graphApiClient;
         this.leadMapper = leadMapper;
@@ -118,6 +123,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         this.pushNotificationService = pushNotificationService;
         this.crmNotificationService = crmNotificationService;
         this.userRepository = userRepository;
+        this.leadBatchNotificationService = leadBatchNotificationService;
     }
 
     @Override
@@ -529,7 +535,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     }
 
     private void dispatchNewLeadPushNotification(Lead savedLead, ExcelLeadRowDTO row) {
-        if (pushNotificationService == null || savedLead == null) {
+        if (savedLead == null) {
             return;
         }
         try {
@@ -542,6 +548,21 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             String formName = (row != null && row.getFormName() != null && !row.getFormName().isBlank())
                 ? row.getFormName()
                 : "Meta Lead Ad";
+
+            // MNC Standard: Buffer leads in batches of 10 for combined email digest + grouped notification
+            if (leadBatchNotificationService != null) {
+                leadBatchNotificationService.queueLead(new LeadBatchItemDTO(
+                    savedLead.getId() != null ? savedLead.getId().toString() : "",
+                    name,
+                    phone,
+                    formName
+                ));
+                return;
+            }
+
+            if (pushNotificationService == null) {
+                return;
+            }
 
             String title = "New Lead Received: " + name;
             String body = formName + (!phone.isBlank() ? " • " + phone : "");

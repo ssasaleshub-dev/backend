@@ -4,9 +4,12 @@ import com.salescrm.domain.CrmNotification;
 import com.salescrm.domain.Lead;
 import com.salescrm.repository.LeadRepository;
 import com.salescrm.repository.UserRepository;
+import com.salescrm.service.CrmEmailService;
 import com.salescrm.service.CrmNotificationService;
 import com.salescrm.service.FirebasePushNotificationService;
+import com.salescrm.service.LeadBatchNotificationService;
 import com.salescrm.service.LeadService;
+import com.salescrm.service.dto.LeadBatchItemDTO;
 import com.salescrm.service.dto.LeadDTO;
 import com.salescrm.service.mapper.LeadMapper;
 import java.time.Instant;
@@ -43,8 +46,12 @@ public class LeadServiceImpl implements LeadService {
 
     private final UserRepository userRepository;
 
+    private final CrmEmailService crmEmailService;
+
+    private final LeadBatchNotificationService leadBatchNotificationService;
+
     public LeadServiceImpl(LeadRepository leadRepository, LeadMapper leadMapper, DatabaseClient databaseClient) {
-        this(leadRepository, leadMapper, databaseClient, null, null, null);
+        this(leadRepository, leadMapper, databaseClient, null, null, null, null, null);
     }
 
     @Autowired
@@ -54,7 +61,9 @@ public class LeadServiceImpl implements LeadService {
         DatabaseClient databaseClient,
         @Autowired(required = false) FirebasePushNotificationService pushNotificationService,
         @Autowired(required = false) CrmNotificationService crmNotificationService,
-        @Autowired(required = false) UserRepository userRepository
+        @Autowired(required = false) UserRepository userRepository,
+        @Autowired(required = false) CrmEmailService crmEmailService,
+        @Autowired(required = false) LeadBatchNotificationService leadBatchNotificationService
     ) {
         this.leadRepository = leadRepository;
         this.leadMapper = leadMapper;
@@ -62,6 +71,8 @@ public class LeadServiceImpl implements LeadService {
         this.pushNotificationService = pushNotificationService;
         this.crmNotificationService = crmNotificationService;
         this.userRepository = userRepository;
+        this.crmEmailService = crmEmailService;
+        this.leadBatchNotificationService = leadBatchNotificationService;
     }
 
     @Override
@@ -100,6 +111,18 @@ public class LeadServiceImpl implements LeadService {
             String name = (savedLead.getCustomer() != null && savedLead.getCustomer().getFullName() != null)
                 ? savedLead.getCustomer().getFullName()
                 : "New Lead";
+            String source = savedLead.getPlatform() != null ? savedLead.getPlatform().toString() : "Direct";
+            String phone = (savedLead.getCustomer() != null && savedLead.getCustomer().getPhoneNumber() != null)
+                ? savedLead.getCustomer().getPhoneNumber() : "N/A";
+            String leadIdStr = savedLead.getId() != null ? savedLead.getId().toString() : "";
+
+            // MNC Standard: Buffer leads in batches of 10 for combined email digest + grouped notification
+            if (leadBatchNotificationService != null) {
+                leadBatchNotificationService.queueLead(new LeadBatchItemDTO(leadIdStr, name, phone, source));
+                return;
+            }
+
+            // Fallback if batch service is not present
             String title = "New Lead Received: " + name;
             String body = "New lead added to CRM";
 
@@ -131,6 +154,24 @@ public class LeadServiceImpl implements LeadService {
                     .subscribe(
                         saved -> LOG.debug("[LeadNotification] Persisted in-app lead notification for user: {}", saved.getUserId()),
                         err -> LOG.error("[LeadNotification] Failed to persist in-app lead notification: {}", err.getMessage())
+                    );
+            }
+
+            // MNC Standard: Send email alert to all admins when a new lead is captured
+            if (crmEmailService != null && userRepository != null) {
+                final String leadName = name;
+                final String leadSource = savedLead.getPlatform() != null ? savedLead.getPlatform().toString() : "Direct";
+                final String leadPhone = (savedLead.getCustomer() != null && savedLead.getCustomer().getPhoneNumber() != null)
+                    ? savedLead.getCustomer().getPhoneNumber() : "N/A";
+                userRepository.findAll()
+                    .filter(user -> user.getEmail() != null && !user.getEmail().isBlank()
+                                   && user.getAuthorities() != null
+                                   && user.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getName())))
+                    .flatMap(admin -> crmEmailService.sendNewLeadAlertEmail(
+                        admin.getEmail(), leadName, leadSource, leadPhone))
+                    .subscribe(
+                        v -> {},
+                        err -> LOG.warn("[LeadEmail] Failed to send lead alert email: {}", err.getMessage())
                     );
             }
         } catch (Exception e) {

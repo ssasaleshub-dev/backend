@@ -127,9 +127,26 @@ public class AccountResource {
     }
 
     /**
+     * {@code POST  /account/change-password/init-otp} : Send OTP email to current user for password change.
+     */
+    @PostMapping(path = "/account/change-password/init-otp")
+    public Mono<Void> requestChangePasswordOtp() {
+        return userService
+            .requestChangePasswordOtp()
+            .doOnSuccess(user -> {
+                if (Objects.nonNull(user)) {
+                    mailService.sendPasswordResetMail(user);
+                } else {
+                    LOG.warn("Change password OTP requested but user not found");
+                }
+            })
+            .then();
+    }
+
+    /**
      * {@code POST  /account/change-password} : changes the current user's password.
      *
-     * @param passwordChangeDto current and new password.
+     * @param passwordChangeDto current and new password, and verification OTP.
      * @throws InvalidPasswordException {@code 400 (Bad Request)} if the new password is incorrect.
      */
     @PostMapping(path = "/account/change-password")
@@ -137,7 +154,11 @@ public class AccountResource {
         if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword())) {
             throw new InvalidPasswordException();
         }
-        return userService.changePassword(passwordChangeDto.getCurrentPassword(), passwordChangeDto.getNewPassword());
+        return userService.changePassword(
+            passwordChangeDto.getCurrentPassword(),
+            passwordChangeDto.getNewPassword(),
+            passwordChangeDto.getOtp()
+        );
     }
 
     /**
@@ -147,8 +168,9 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/reset-password/init")
     public Mono<Void> requestPasswordReset(@RequestBody String mail) {
+        String cleanMail = mail != null ? mail.trim().replaceAll("^\"|\"$", "") : "";
         return userService
-            .requestPasswordReset(mail)
+            .requestPasswordReset(cleanMail)
             .doOnSuccess(user -> {
                 if (Objects.nonNull(user)) {
                     mailService.sendPasswordResetMail(user);
@@ -166,7 +188,7 @@ public class AccountResource {
      *
      * @param keyAndPassword the generated key and the new password.
      * @throws InvalidPasswordException {@code 400 (Bad Request)} if the password is incorrect.
-     * @throws RuntimeException {@code 500 (Internal Server Error)} if the password could not be reset.
+     * @throws RuntimeException {@code 400 (Bad Request)} if the password could not be reset.
      */
     @PostMapping(path = "/account/reset-password/finish")
     public Mono<Void> finishPasswordReset(@RequestBody KeyAndPasswordVM keyAndPassword) {
@@ -175,7 +197,7 @@ public class AccountResource {
         }
         return userService
             .completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey())
-            .switchIfEmpty(Mono.error(new AccountResourceException("No user was found for this reset key")))
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Invalid or expired OTP verification code", "account", "invalidotp")))
             .then();
     }
 
