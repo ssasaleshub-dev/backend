@@ -203,6 +203,15 @@ public class GoogleIntegrationResource {
             .defaultIfEmpty("admin")
             .flatMap(userId -> googleIntegrationService.sendGmailMessage(userId, to, subject, body))
             .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Gmail is not connected for this user")));
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Gmail is not connected for this user")))
+            .onErrorResume(err -> {
+                String msg = err.getMessage() != null ? err.getMessage() : "Failed to send email";
+                if (msg.contains("403") || msg.contains("401")) {
+                    return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "Insufficient Gmail permissions. Please disconnect and reconnect Google to grant send permission."
+                    )));
+                }
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", msg)));
+            });
     }
 }
