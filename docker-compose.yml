@@ -41,6 +41,9 @@ services:
       SPRING_LIQUIBASE_PASSWORD: salescrm_secret
       JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET: fd54a454659368e69d6e53ea04554e296d6f1a54c48bdd39da918a39795da4e0cac91738874fa816d9b7bee52cca7793be663c705081c25c33d24f01141c52d1
       _JAVA_OPTIONS: "-Xms256m -Xmx512m"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      GOOGLE_REDIRECT_URI: "${GOOGLE_REDIRECT_URI:-https://ssasaleshub.cloud/api/integrations/google/callback}"
     ports:
       - "8080:8080"
     healthcheck:

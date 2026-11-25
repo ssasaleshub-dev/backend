@@ -154,3 +154,5 @@ coverage/
 
 # Firebase Service Account
 *firebase-service-account*.json
+
+.env
