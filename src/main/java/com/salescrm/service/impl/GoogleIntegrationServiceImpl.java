@@ -3,17 +3,25 @@ package com.salescrm.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salescrm.config.ApplicationProperties;
+import com.salescrm.domain.Lead;
 import com.salescrm.domain.UserGoogleIntegration;
+import com.salescrm.repository.LeadRepository;
 import com.salescrm.repository.UserGoogleIntegrationRepository;
 import com.salescrm.service.GoogleIntegrationService;
+import com.salescrm.service.LeadImportService;
 import com.salescrm.service.dto.google.GoogleIntegrationStatusDTO;
 import com.salescrm.service.dto.google.GoogleTokenResponseDTO;
 import com.salescrm.service.dto.google.GoogleUserInfoDTO;
+import java.io.ByteArrayInputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import reactor.core.publisher.Flux;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -34,19 +42,26 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
     private static final String GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
     private static final String GOOGLE_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1";
     private static final String GOOGLE_SHEETS_BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
+    private static final String GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
 
     private final UserGoogleIntegrationRepository integrationRepository;
     private final ApplicationProperties applicationProperties;
+    private final LeadImportService leadImportService;
+    private final LeadRepository leadRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GoogleIntegrationServiceImpl(
         UserGoogleIntegrationRepository integrationRepository,
         ApplicationProperties applicationProperties,
+        LeadImportService leadImportService,
+        LeadRepository leadRepository,
         WebClient.Builder webClientBuilder
     ) {
         this.integrationRepository = integrationRepository;
         this.applicationProperties = applicationProperties;
+        this.leadImportService = leadImportService;
+        this.leadRepository = leadRepository;
         this.webClient = webClientBuilder.build();
     }
 
@@ -60,8 +75,8 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
         String scopes = String.join(
             " ",
             "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         );
@@ -310,6 +325,138 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                             return Mono.error(e);
                         }
                     });
+            });
+    }
+
+    @Override
+    public Mono<List<Map<String, String>>> listGoogleSheets(String userId) {
+        return getValidAccessToken(userId)
+            .flatMap(token -> {
+                String url = GOOGLE_DRIVE_FILES_URL +
+                    "?q=" + URLEncoder.encode("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false", StandardCharsets.UTF_8) +
+                    "&fields=" + URLEncoder.encode("files(id,name,modifiedTime)", StandardCharsets.UTF_8) +
+                    "&orderBy=" + URLEncoder.encode("modifiedTime desc", StandardCharsets.UTF_8) +
+                    "&pageSize=50";
+                return webClient
+                    .get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(body -> {
+                        try {
+                            JsonNode root = objectMapper.readTree(body);
+                            List<Map<String, String>> list = new ArrayList<>();
+                            if (root.has("files") && root.get("files").isArray()) {
+                                for (JsonNode file : root.get("files")) {
+                                    Map<String, String> item = new HashMap<>();
+                                    item.put("id", file.path("id").asText());
+                                    item.put("name", file.path("name").asText("Untitled Sheet"));
+                                    item.put("modifiedTime", file.path("modifiedTime").asText(""));
+                                    list.add(item);
+                                }
+                            }
+                            return list;
+                        } catch (Exception e) {
+                            throw new RuntimeException("Failed to parse Google Drive sheets list: " + e.getMessage(), e);
+                        }
+                    });
+            });
+    }
+
+    @Override
+    public Mono<Map<String, Object>> previewGoogleSheet(String userId, String spreadsheetId) {
+        return getValidAccessToken(userId)
+            .flatMap(token -> {
+                String metaUrl = GOOGLE_SHEETS_BASE_URL + "/" + spreadsheetId + "?fields=properties.title,sheets.properties.title";
+                return webClient
+                    .get()
+                    .uri(metaUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .flatMap(metaBody -> {
+                        try {
+                            JsonNode meta = objectMapper.readTree(metaBody);
+                            String title = meta.path("properties").path("title").asText("Google Sheet");
+                            String firstTab = "Sheet1";
+                            if (meta.has("sheets") && meta.get("sheets").isArray() && meta.get("sheets").size() > 0) {
+                                firstTab = meta.get("sheets").get(0).path("properties").path("title").asText("Sheet1");
+                            }
+                            String range = URLEncoder.encode(firstTab + "!A1:Z50", StandardCharsets.UTF_8);
+                            String valuesUrl = GOOGLE_SHEETS_BASE_URL + "/" + spreadsheetId + "/values/" + range;
+                            return webClient
+                                .get()
+                                .uri(valuesUrl)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .retrieve()
+                                .bodyToMono(String.class)
+                                .map(valuesBody -> {
+                                    try {
+                                        JsonNode valJson = objectMapper.readTree(valuesBody);
+                                        List<String> headers = new ArrayList<>();
+                                        List<List<String>> rows = new ArrayList<>();
+                                        JsonNode valuesNode = valJson.path("values");
+                                        if (valuesNode.isArray() && valuesNode.size() > 0) {
+                                            for (JsonNode cell : valuesNode.get(0)) {
+                                                headers.add(cell.asText(""));
+                                            }
+                                            for (int i = 1; i < valuesNode.size(); i++) {
+                                                List<String> row = new ArrayList<>();
+                                                for (JsonNode cell : valuesNode.get(i)) {
+                                                    row.add(cell.asText(""));
+                                                }
+                                                rows.add(row);
+                                            }
+                                        }
+                                        Map<String, Object> result = new HashMap<>();
+                                        result.put("spreadsheetId", spreadsheetId);
+                                        result.put("title", title);
+                                        result.put("headers", headers);
+                                        result.put("rows", rows);
+                                        result.put("totalRows", rows.size());
+                                        return result;
+                                    } catch (Exception e) {
+                                        throw new RuntimeException("Failed to parse Google Sheet values: " + e.getMessage(), e);
+                                    }
+                                });
+                        } catch (Exception e) {
+                            return Mono.error(new RuntimeException("Failed to parse Google Sheet metadata: " + e.getMessage(), e));
+                        }
+                    });
+            });
+    }
+
+    @Override
+    public Mono<Map<String, Object>> importGoogleSheet(String userId, String spreadsheetId) {
+        return getValidAccessToken(userId)
+            .flatMap(token -> {
+                String exportUrl = GOOGLE_DRIVE_FILES_URL + "/" + spreadsheetId + "/export?mimeType=text/csv";
+                return webClient
+                    .get()
+                    .uri(exportUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(byte[].class)
+                    .flatMap(csvBytes ->
+                        leadImportService.importFile(
+                            "google-sheet-" + spreadsheetId + ".csv",
+                            "text/csv",
+                            new ByteArrayInputStream(csvBytes)
+                        )
+                    )
+                    .flatMap(importResult ->
+                        Flux.fromIterable(importResult.getImportedLeadExternalIds())
+                            .flatMap(leadRepository::findByExternalId)
+                            .map(Lead::getId)
+                            .collectList()
+                            .map(leadIds -> {
+                                Map<String, Object> res = new HashMap<>();
+                                res.put("importedCount", importResult.getSuccessfulRows());
+                                res.put("leadIds", leadIds);
+                                return res;
+                            })
+                    );
             });
     }
 }

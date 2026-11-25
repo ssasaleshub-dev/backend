@@ -6,6 +6,7 @@ import com.salescrm.service.GoogleIntegrationService;
 import com.salescrm.service.dto.google.GoogleIntegrationStatusDTO;
 import java.net.URI;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -147,5 +148,41 @@ public class GoogleIntegrationResource {
             .flatMap(userId -> googleIntegrationService.createGoogleMeet(userId, title, description, finalStart, finalEnd))
             .map(meetUrl -> ResponseEntity.ok(Map.of("meetUrl", meetUrl)))
             .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Google Calendar is not connected for this user")));
+    }
+
+    /**
+     * {@code GET /sheets} : Lists the user's Google Sheets (import-only).
+     */
+    @GetMapping("/sheets")
+    public Mono<ResponseEntity<List<Map<String, String>>>> listGoogleSheets() {
+        return SecurityUtils.getCurrentUserLogin()
+            .defaultIfEmpty("admin")
+            .flatMap(googleIntegrationService::listGoogleSheets)
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
+    }
+
+    /**
+     * {@code GET /sheets/{spreadsheetId}/preview} : Previews headers and rows of a Google Sheet.
+     */
+    @GetMapping("/sheets/{spreadsheetId}/preview")
+    public Mono<ResponseEntity<Map<String, Object>>> previewGoogleSheet(@PathVariable String spreadsheetId) {
+        return SecurityUtils.getCurrentUserLogin()
+            .defaultIfEmpty("admin")
+            .flatMap(userId -> googleIntegrationService.previewGoogleSheet(userId, spreadsheetId))
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
+    }
+
+    /**
+     * {@code POST /sheets/{spreadsheetId}/import} : Imports leads from a Google Sheet.
+     */
+    @PostMapping("/sheets/{spreadsheetId}/import")
+    public Mono<ResponseEntity<Map<String, Object>>> importGoogleSheet(@PathVariable String spreadsheetId) {
+        return SecurityUtils.getCurrentUserLogin()
+            .defaultIfEmpty("admin")
+            .flatMap(userId -> googleIntegrationService.importGoogleSheet(userId, spreadsheetId))
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
     }
 }

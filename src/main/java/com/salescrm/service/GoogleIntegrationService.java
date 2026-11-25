@@ -4,6 +4,7 @@ import com.salescrm.domain.UserGoogleIntegration;
 import com.salescrm.service.dto.google.GoogleIntegrationStatusDTO;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import reactor.core.publisher.Mono;
 
 /**
@@ -46,4 +47,19 @@ public interface GoogleIntegrationService {
      * Creates a new Google Sheet or appends rows to an existing spreadsheet.
      */
     Mono<String> exportLeadsToGoogleSheet(String userId, String sheetTitle, List<List<Object>> rows);
+
+    /**
+     * Lists the user's Google Sheets from Google Drive (import-only).
+     */
+    Mono<List<Map<String, String>>> listGoogleSheets(String userId);
+
+    /**
+     * Previews headers and sample rows from a Google Sheet before importing.
+     */
+    Mono<Map<String, Object>> previewGoogleSheet(String userId, String spreadsheetId);
+
+    /**
+     * Exports a Google Sheet as CSV and imports its leads into the CRM, returning count and lead IDs.
+     */
+    Mono<Map<String, Object>> importGoogleSheet(String userId, String spreadsheetId);
 }
