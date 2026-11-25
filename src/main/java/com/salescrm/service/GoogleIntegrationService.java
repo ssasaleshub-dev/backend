@@ -44,6 +44,11 @@ public interface GoogleIntegrationService {
     Mono<String> createGoogleMeet(String userId, String title, String description, Instant startInstant, Instant endInstant);
 
     /**
+     * Creates a standard Google Calendar event (without forcing a Meet link) for CRM reminders.
+     */
+    Mono<String> createCalendarEvent(String userId, String title, String description, Instant startInstant, Instant endInstant);
+
+    /**
      * Creates a new Google Sheet or appends rows to an existing spreadsheet.
      */
     Mono<String> exportLeadsToGoogleSheet(String userId, String sheetTitle, List<List<Object>> rows);

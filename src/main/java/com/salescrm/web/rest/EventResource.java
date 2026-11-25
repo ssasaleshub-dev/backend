@@ -175,14 +175,17 @@ public class EventResource {
             event.setUserId(userId);
 
             Mono<CrmEvent> meetEnhancer = Mono.just(event);
-            if ((event.getMeetingLink() == null || event.getMeetingLink().isBlank()) && googleIntegrationService != null) {
+            if (googleIntegrationService != null) {
+                Instant startInstant = (event.getEventDate() != null && event.getEventTime() != null)
+                    ? event.getEventDate().atTime(event.getEventTime()).atZone(DEFAULT_ZONE).toInstant()
+                    : Instant.now().plusSeconds(600);
+                Instant endInstant = startInstant.plusSeconds(1800);
                 String type = event.getEventType() != null ? event.getEventType().toUpperCase() : "";
                 String title = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
-                if (type.contains("MEET") || type.contains("DEMO") || type.contains("CONSULT") || title.contains("meet") || title.contains("demo")) {
-                    Instant startInstant = (event.getEventDate() != null && event.getEventTime() != null)
-                        ? event.getEventDate().atTime(event.getEventTime()).atZone(DEFAULT_ZONE).toInstant()
-                        : Instant.now().plusSeconds(600);
-                    Instant endInstant = startInstant.plusSeconds(1800);
+                boolean wantsMeet = (event.getMeetingLink() == null || event.getMeetingLink().isBlank()) &&
+                    (type.contains("MEET") || type.contains("DEMO") || type.contains("CONSULT") || title.contains("meet") || title.contains("demo"));
+
+                if (wantsMeet) {
                     meetEnhancer = googleIntegrationService
                         .createGoogleMeet(userId, event.getTitle(), event.getDescription(), startInstant, endInstant)
                         .map(meetLink -> {
@@ -190,6 +193,11 @@ public class EventResource {
                             return event;
                         })
                         .defaultIfEmpty(event)
+                        .onErrorReturn(event);
+                } else {
+                    meetEnhancer = googleIntegrationService
+                        .createCalendarEvent(userId, event.getTitle(), event.getDescription(), startInstant, endInstant)
+                        .thenReturn(event)
                         .onErrorReturn(event);
                 }
             }

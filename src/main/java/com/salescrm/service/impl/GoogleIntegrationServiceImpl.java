@@ -42,6 +42,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
     private static final String GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
     private static final String GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
     private static final String GOOGLE_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1";
+    private static final String GOOGLE_CALENDAR_PLAIN_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
     private static final String GOOGLE_SHEETS_BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
     private static final String GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
 
@@ -281,6 +282,41 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
             })
             .onErrorResume(err -> {
                 LOG.warn("Could not generate Google Meet for user {}: {}", userId, err.getMessage());
+                return Mono.empty();
+            });
+    }
+
+    @Override
+    public Mono<String> createCalendarEvent(String userId, String title, String description, Instant startInstant, Instant endInstant) {
+        return getValidAccessToken(userId)
+            .flatMap(token -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("summary", (title != null && !title.isBlank()) ? title : "CRM Follow-up Reminder");
+                body.put("description", (description != null && !description.isBlank()) ? description : "Scheduled via SSA SalesHub");
+                body.put("start", Map.of("dateTime", startInstant.toString()));
+                body.put("end", Map.of("dateTime", endInstant.toString()));
+
+                return webClient
+                    .post()
+                    .uri(GOOGLE_CALENDAR_PLAIN_EVENTS_URL)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(responseBody -> {
+                        try {
+                            JsonNode json = objectMapper.readTree(responseBody);
+                            String htmlLink = json.path("htmlLink").asText("");
+                            LOG.info("Synced CRM reminder to Google Calendar for user {}: {}", userId, htmlLink);
+                            return htmlLink;
+                        } catch (Exception e) {
+                            return "";
+                        }
+                    });
+            })
+            .onErrorResume(err -> {
+                LOG.warn("Could not sync CRM reminder to Google Calendar for user {}: {}", userId, err.getMessage());
                 return Mono.empty();
             });
     }
