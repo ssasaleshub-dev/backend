@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 /**
@@ -154,35 +155,77 @@ public class GoogleIntegrationResource {
      * {@code GET /sheets} : Lists the user's Google Sheets (import-only).
      */
     @GetMapping("/sheets")
-    public Mono<ResponseEntity<List<Map<String, String>>>> listGoogleSheets() {
+    public Mono<ResponseEntity<?>> listGoogleSheets() {
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty("admin")
             .flatMap(googleIntegrationService::listGoogleSheets)
-            .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Google Workspace integration is not connected for this user")))
+            .onErrorResume(err -> {
+                LOG.error("Failed to list Google Sheets: {}", err.getMessage());
+                if (err instanceof WebClientResponseException wce) {
+                    if (wce.getStatusCode() == HttpStatus.FORBIDDEN || wce.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                            "error", "Insufficient Google Drive permissions. Please disconnect and reconnect your Google account in Settings to grant Drive access.",
+                            "status", wce.getStatusCode().value()
+                        )));
+                    }
+                    return Mono.just(ResponseEntity.status(wce.getStatusCode()).body(Map.of(
+                        "error", "Google Drive API error: " + wce.getStatusCode(),
+                        "details", wce.getResponseBodyAsString()
+                    )));
+                }
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "error", "Failed to retrieve Google Sheets: " + err.getMessage()
+                )));
+            });
     }
 
     /**
      * {@code GET /sheets/{spreadsheetId}/preview} : Previews headers and rows of a Google Sheet.
      */
     @GetMapping("/sheets/{spreadsheetId}/preview")
-    public Mono<ResponseEntity<Map<String, Object>>> previewGoogleSheet(@PathVariable String spreadsheetId) {
+    public Mono<ResponseEntity<?>> previewGoogleSheet(@PathVariable String spreadsheetId) {
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty("admin")
             .flatMap(userId -> googleIntegrationService.previewGoogleSheet(userId, spreadsheetId))
-            .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Google Workspace integration is not connected for this user")))
+            .onErrorResume(err -> {
+                LOG.error("Failed to preview Google Sheet {}: {}", spreadsheetId, err.getMessage());
+                if (err instanceof WebClientResponseException wce) {
+                    return Mono.just(ResponseEntity.status(wce.getStatusCode()).body(Map.of(
+                        "error", "Google Sheets API error: " + wce.getStatusCode(),
+                        "details", wce.getResponseBodyAsString()
+                    )));
+                }
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "error", "Failed to preview sheet: " + err.getMessage()
+                )));
+            });
     }
 
     /**
      * {@code POST /sheets/{spreadsheetId}/import} : Imports leads from a Google Sheet.
      */
     @PostMapping("/sheets/{spreadsheetId}/import")
-    public Mono<ResponseEntity<Map<String, Object>>> importGoogleSheet(@PathVariable String spreadsheetId) {
+    public Mono<ResponseEntity<?>> importGoogleSheet(@PathVariable String spreadsheetId) {
         return SecurityUtils.getCurrentUserLogin()
             .defaultIfEmpty("admin")
             .flatMap(userId -> googleIntegrationService.importGoogleSheet(userId, spreadsheetId))
-            .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Google Workspace integration is not connected for this user")))
+            .onErrorResume(err -> {
+                LOG.error("Failed to import Google Sheet {}: {}", spreadsheetId, err.getMessage());
+                if (err instanceof WebClientResponseException wce) {
+                    return Mono.just(ResponseEntity.status(wce.getStatusCode()).body(Map.of(
+                        "error", "Google Sheets import error: " + wce.getStatusCode(),
+                        "details", wce.getResponseBodyAsString()
+                    )));
+                }
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "error", "Failed to import sheet: " + err.getMessage()
+                )));
+            });
     }
 }
