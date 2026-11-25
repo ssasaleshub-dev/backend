@@ -31,6 +31,9 @@ public interface CrmNotificationRepository extends ReactiveCrudRepository<CrmNot
     @Query("SELECT COUNT(*) FROM crm_notifications WHERE user_id = :userId AND reference_id = :referenceId AND type = :type")
     Mono<Long> countByUserIdAndReferenceIdAndType(String userId, String referenceId, String type);
 
+    @Query("SELECT * FROM crm_notifications WHERE LOWER(user_id) = LOWER(:userId) AND reference_id = :referenceId AND type = :type ORDER BY created_at DESC LIMIT 1")
+    Mono<CrmNotification> findLatestByUserIdIgnoreCaseAndReferenceIdAndType(String userId, String referenceId, String type);
+
     @Modifying
     @Query("UPDATE crm_notifications SET is_read = true, read_at = :readAt WHERE (LOWER(user_id) = LOWER(:userId) OR LOWER(user_id) = LOWER(:altUserId)) AND is_read = false")
     Mono<Long> markAllAsReadForUserOrAltUserId(String userId, String altUserId, Instant readAt);

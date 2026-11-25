@@ -120,13 +120,38 @@ public class CrmNotificationServiceImpl implements CrmNotificationService {
         if (notification.getIsRead() == null) {
             notification.setIsRead(false);
         }
-        return crmNotificationRepository.save(notification)
+
+        boolean isChat = "CHAT".equalsIgnoreCase(notification.getType());
+        boolean hasRefKey =
+            !isChat &&
+            notification.getUserId() != null &&
+            !notification.getUserId().isBlank() &&
+            notification.getReferenceId() != null &&
+            !notification.getReferenceId().isBlank() &&
+            notification.getType() != null &&
+            !notification.getType().isBlank();
+
+        Mono<CrmNotification> persistAndBroadcast = crmNotificationRepository
+            .save(notification)
             .map(CrmNotification::setIsPersisted)
             .doOnSuccess(saved -> {
                 if (saved != null) {
                     broadcastNotification(saved);
                 }
             });
+
+        if (hasRefKey) {
+            return crmNotificationRepository
+                .findLatestByUserIdIgnoreCaseAndReferenceIdAndType(
+                    notification.getUserId().trim(),
+                    notification.getReferenceId().trim(),
+                    notification.getType().trim()
+                )
+                .map(CrmNotification::setIsPersisted)
+                .switchIfEmpty(persistAndBroadcast);
+        }
+
+        return persistAndBroadcast;
     }
 
     @Override

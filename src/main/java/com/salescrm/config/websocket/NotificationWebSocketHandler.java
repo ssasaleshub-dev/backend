@@ -128,9 +128,19 @@ public class NotificationWebSocketHandler implements WebSocketHandler {
         data.put("timestamp", "now");
         data.put("createdAt", notif.getCreatedAt() != null ? notif.getCreatedAt().toString() : Instant.now().toString());
 
-        if ("CHAT_MESSAGE".equalsIgnoreCase(notif.getReferenceType()) || "CHAT".equalsIgnoreCase(notif.getType())) {
+        String refType = notif.getReferenceType() != null ? notif.getReferenceType().toUpperCase() : "";
+        String notifType = notif.getType() != null ? notif.getType().toUpperCase() : "";
+        String refId = notif.getReferenceId() != null ? notif.getReferenceId().trim() : "";
+
+        if ("CHAT_MESSAGE".equals(refType) || "CHAT".equals(notifType)) {
             data.put("url", "/chat");
-        } else if ("LEAD".equalsIgnoreCase(notif.getReferenceType()) || "NEW_LEAD".equalsIgnoreCase(notif.getType())) {
+        } else if ("ATTENDANCE".equals(refType) || "ATTENDANCE".equals(notifType) || "ATTENDANCE_VERIFY".equals(notifType)) {
+            data.put("url", "/attendance");
+        } else if ("EVENT".equals(refType) || "REMINDER".equals(notifType)) {
+            data.put("url", "/calendar");
+        } else if ("LEAD".equals(refType) && refId.matches("\\d+")) {
+            data.put("url", "/leads/" + refId);
+        } else if ("LEAD".equals(refType) || "LEAD_BATCH".equals(refType) || "NEW_LEAD".equals(notifType) || "LEAD_ASSIGNED".equals(notifType)) {
             data.put("url", "/leads");
         }
 

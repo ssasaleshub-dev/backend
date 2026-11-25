@@ -58,6 +58,11 @@ public class LeadBatchNotificationService {
         if (item == null) {
             return;
         }
+        String incomingId = item.getLeadId() != null ? item.getLeadId().trim() : "";
+        if (!incomingId.isEmpty() && leadQueue.stream().anyMatch(q -> incomingId.equals(q.getLeadId()))) {
+            LOG.debug("[LeadBatch] Skipping duplicate leadId '{}' already in batch buffer", incomingId);
+            return;
+        }
         leadQueue.offer(item);
         LOG.info("[LeadBatch] Queued lead: '{}' (Current batch buffer: {}/{})",
             item.getName(), leadQueue.size(), BATCH_SIZE);
@@ -133,12 +138,29 @@ public class LeadBatchNotificationService {
                 );
         }
 
+        String singleLeadId = null;
+        if (count == 1) {
+            String candidateId = batch.get(0).getLeadId();
+            if (candidateId != null && candidateId.trim().matches("\\d+")) {
+                singleLeadId = candidateId.trim();
+            }
+        }
+        final String refId = (singleLeadId != null) ? singleLeadId : ("batch-" + System.currentTimeMillis());
+        final String refType = (singleLeadId != null) ? "LEAD" : "LEAD_BATCH";
+
         // 2. Dispatch grouped FCM Push Notification
         if (pushNotificationService != null) {
             Map<String, String> data = new HashMap<>();
-            data.put("type", "NEW_LEAD_BATCH");
+            data.put("type", singleLeadId != null ? "NEW_LEAD" : "NEW_LEAD_BATCH");
             data.put("batchCount", String.valueOf(count));
-            data.put("route", "/leads");
+            data.put("referenceId", refId);
+            data.put("referenceType", refType);
+            if (singleLeadId != null) {
+                data.put("leadId", singleLeadId);
+                data.put("route", "/leads/" + singleLeadId);
+            } else {
+                data.put("route", "/leads");
+            }
             try {
                 pushNotificationService.sendPushNotificationToAll(title, body, data);
             } catch (Exception e) {
@@ -155,8 +177,8 @@ public class LeadBatchNotificationService {
                     notif.setTitle(title);
                     notif.setMessage(body);
                     notif.setType("NEW_LEAD");
-                    notif.setReferenceId("batch-" + System.currentTimeMillis());
-                    notif.setReferenceType("LEAD");
+                    notif.setReferenceId(refId);
+                    notif.setReferenceType(refType);
                     notif.setIsRead(Boolean.FALSE);
                     notif.setCreatedAt(Instant.now());
                     return crmNotificationService.createNotification(notif);
