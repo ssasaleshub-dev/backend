@@ -13,6 +13,7 @@ import com.salescrm.service.dto.google.GoogleIntegrationStatusDTO;
 import com.salescrm.service.dto.google.GoogleTokenResponseDTO;
 import com.salescrm.service.dto.google.GoogleUserInfoDTO;
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -339,7 +340,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                     "&pageSize=50";
                 return webClient
                     .get()
-                    .uri(url)
+                    .uri(URI.create(url))
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -387,7 +388,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                             String valuesUrl = GOOGLE_SHEETS_BASE_URL + "/" + spreadsheetId + "/values/" + range;
                             return webClient
                                 .get()
-                                .uri(valuesUrl)
+                                .uri(URI.create(valuesUrl))
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                                 .retrieve()
                                 .bodyToMono(String.class)
@@ -434,7 +435,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                 String exportUrl = GOOGLE_DRIVE_FILES_URL + "/" + spreadsheetId + "/export?mimeType=text/csv";
                 return webClient
                     .get()
-                    .uri(exportUrl)
+                    .uri(URI.create(exportUrl))
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(byte[].class)
