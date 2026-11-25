@@ -338,6 +338,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                     .queryParam("fields", "files(id,name,modifiedTime)")
                     .queryParam("orderBy", "modifiedTime desc")
                     .queryParam("pageSize", 50)
+                    .encode()
                     .build()
                     .toUri();
                 return webClient
@@ -345,14 +346,15 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                     .uri(uri)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
+                    .onStatus(status -> status.isError(), resp ->
+                        resp.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(errBody -> {
+                                LOG.error("Google Drive API error ({}): {}", resp.statusCode(), errBody);
+                                return Mono.error(new RuntimeException("Google Drive API error (" + resp.statusCode() + "): " + errBody));
+                            })
+                    )
                     .bodyToMono(String.class)
-                    .doOnError(err -> {
-                        if (err instanceof org.springframework.web.reactive.function.client.WebClientResponseException wce) {
-                            LOG.error("Google Drive API files list error [{}]: {}", wce.getStatusCode(), wce.getResponseBodyAsString());
-                        } else {
-                            LOG.error("Google Drive API files list failed: {}", err.getMessage());
-                        }
-                    })
                     .map(body -> {
                         try {
                             JsonNode root = objectMapper.readTree(body);
@@ -378,14 +380,10 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
     public Mono<Map<String, Object>> previewGoogleSheet(String userId, String spreadsheetId) {
         return getValidAccessToken(userId)
             .flatMap(token -> {
-                URI metaUri = UriComponentsBuilder.fromHttpUrl(GOOGLE_SHEETS_BASE_URL)
-                    .pathSegment(spreadsheetId)
-                    .queryParam("fields", "properties.title,sheets.properties.title")
-                    .build()
-                    .toUri();
+                String metaUrl = GOOGLE_SHEETS_BASE_URL + "/" + spreadsheetId + "?fields=properties.title,sheets.properties.title";
                 return webClient
                     .get()
-                    .uri(metaUri)
+                    .uri(metaUrl)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -397,14 +395,11 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                             if (meta.has("sheets") && meta.get("sheets").isArray() && meta.get("sheets").size() > 0) {
                                 firstTab = meta.get("sheets").get(0).path("properties").path("title").asText("Sheet1");
                             }
-                            String safeTab = firstTab.contains(" ") ? "'" + firstTab + "'" : firstTab;
-                            URI valuesUri = UriComponentsBuilder.fromHttpUrl(GOOGLE_SHEETS_BASE_URL)
-                                .pathSegment(spreadsheetId, "values", safeTab + "!A1:Z50")
-                                .build()
-                                .toUri();
+                            String range = URLEncoder.encode(firstTab + "!A1:Z50", StandardCharsets.UTF_8);
+                            String valuesUrl = GOOGLE_SHEETS_BASE_URL + "/" + spreadsheetId + "/values/" + range;
                             return webClient
                                 .get()
-                                .uri(valuesUri)
+                                .uri(URI.create(valuesUrl))
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                                 .retrieve()
                                 .bodyToMono(String.class)
@@ -448,14 +443,10 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
     public Mono<Map<String, Object>> importGoogleSheet(String userId, String spreadsheetId) {
         return getValidAccessToken(userId)
             .flatMap(token -> {
-                URI exportUri = UriComponentsBuilder.fromHttpUrl(GOOGLE_DRIVE_FILES_URL)
-                    .pathSegment(spreadsheetId, "export")
-                    .queryParam("mimeType", "text/csv")
-                    .build()
-                    .toUri();
+                String exportUrl = GOOGLE_DRIVE_FILES_URL + "/" + spreadsheetId + "/export?mimeType=text/csv";
                 return webClient
                     .get()
-                    .uri(exportUri)
+                    .uri(URI.create(exportUrl))
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(byte[].class)
