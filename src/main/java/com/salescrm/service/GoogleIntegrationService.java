@@ -67,4 +67,9 @@ public interface GoogleIntegrationService {
      * Exports a Google Sheet as CSV and imports its leads into the CRM, returning count and lead IDs.
      */
     Mono<Map<String, Object>> importGoogleSheet(String userId, String spreadsheetId);
+
+    /**
+     * Sends an email through the user's connected Gmail account via Gmail API.
+     */
+    Mono<Map<String, String>> sendGmailMessage(String userId, String to, String subject, String body);
 }

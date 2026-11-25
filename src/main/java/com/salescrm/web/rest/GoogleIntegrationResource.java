@@ -185,4 +185,24 @@ public class GoogleIntegrationResource {
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build());
     }
+
+    /**
+     * {@code POST /send} and {@code POST /send-test-email} : Sends an email via connected Gmail account.
+     */
+    @PostMapping({ "/send", "/send-test-email" })
+    public Mono<ResponseEntity<Map<String, String>>> sendGmail(@RequestBody Map<String, String> payload) {
+        String to = payload.get("to");
+        String subject = payload.getOrDefault("subject", "");
+        String body = payload.getOrDefault("body", "");
+
+        if (to == null || to.isBlank()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "Recipient email address is required")));
+        }
+
+        return SecurityUtils.getCurrentUserLogin()
+            .defaultIfEmpty("admin")
+            .flatMap(userId -> googleIntegrationService.sendGmailMessage(userId, to, subject, body))
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Map.of("error", "Gmail is not connected for this user")));
+    }
 }

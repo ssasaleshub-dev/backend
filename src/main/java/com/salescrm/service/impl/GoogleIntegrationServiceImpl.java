@@ -18,6 +18,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
     private static final String GOOGLE_CALENDAR_PLAIN_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
     private static final String GOOGLE_SHEETS_BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
     private static final String GOOGLE_DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
+    private static final String GOOGLE_GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 
     private final UserGoogleIntegrationRepository integrationRepository;
     private final ApplicationProperties applicationProperties;
@@ -76,6 +78,7 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
         ApplicationProperties.GoogleProperties props = getProps();
         String scopes = String.join(
             " ",
+            "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/calendar.events",
             "https://www.googleapis.com/auth/spreadsheets.readonly",
             "https://www.googleapis.com/auth/drive.readonly",
@@ -505,6 +508,49 @@ public class GoogleIntegrationServiceImpl implements GoogleIntegrationService {
                                 return res;
                             })
                     );
+            });
+    }
+
+    @Override
+    public Mono<Map<String, String>> sendGmailMessage(String userId, String to, String subject, String body) {
+        return getValidAccessToken(userId)
+            .flatMap(token -> {
+                String safeSubject = (subject != null ? subject : "").replaceAll("[\\r\\n]+", " ");
+                String safeTo = (to != null ? to.trim() : "").replaceAll("[\\r\\n]+", "");
+                String rawEmail = "To: " + safeTo + "\r\n" +
+                    "Subject: " + safeSubject + "\r\n" +
+                    "Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n" +
+                    (body != null ? body : "");
+
+                String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(rawEmail.getBytes(StandardCharsets.UTF_8));
+
+                return webClient
+                    .post()
+                    .uri(GOOGLE_GMAIL_SEND_URL)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(Map.of("raw", encoded))
+                    .retrieve()
+                    .onStatus(status -> status.isError(), resp ->
+                        resp.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(errBody -> {
+                                LOG.error("Gmail API send error ({}): {}", resp.statusCode(), errBody);
+                                return Mono.error(new RuntimeException("Gmail API error (" + resp.statusCode() + "): " + errBody));
+                            })
+                    )
+                    .bodyToMono(String.class)
+                    .map(respBody -> {
+                        try {
+                            JsonNode json = objectMapper.readTree(respBody);
+                            return Map.of(
+                                "status", "sent",
+                                "messageId", json.path("id").asText("")
+                            );
+                        } catch (Exception e) {
+                            return Map.of("status", "sent");
+                        }
+                    });
             });
     }
 }
