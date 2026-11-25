@@ -15,7 +15,8 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'ssasaleshub/backend'
-        DEPLOY_SCRIPT = '/usr/local/bin/deploy-salescrm'
+        IMAGE_TAG = 'dev'
+        DEPLOY_SCRIPT = '/usr/local/bin/deploy-salescrm-dev'
     }
 
     stages {
@@ -28,15 +29,15 @@ pipeline {
         stage('Build JAR') {
             steps {
                 sh '''
-                    echo "=== Building SalesCRM Application JAR ==="
+                    echo "=== Building SalesCRM Application JAR (dev) ==="
                     chmod +x ./mvnw || true
 
                     if command -v ./mvnw >/dev/null 2>&1 && ./mvnw -v >/dev/null 2>&1; then
                         echo "Using ./mvnw wrapper..."
-                        ./mvnw -B clean package -DskipTests -Pprod
+                        ./mvnw -B clean package -DskipTests -Pdev
                     elif command -v mvn >/dev/null 2>&1; then
                         echo "Using system mvn..."
-                        mvn -B clean package -DskipTests -Pprod
+                        mvn -B clean package -DskipTests -Pdev
                     else
                         echo "Building JAR inside Maven Docker container..."
                         docker run --rm \
@@ -44,7 +45,7 @@ pipeline {
                             -v "$HOME/.m2":/root/.m2 \
                             -w /app \
                             maven:3.9.9-eclipse-temurin-21 \
-                            mvn -B clean package -DskipTests -Pprod
+                            mvn -B clean package -DskipTests -Pdev
                     fi
 
                     echo "Verifying generated JAR artifact:"
@@ -56,12 +57,10 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    echo "=== Building Docker Image ==="
+                    echo "=== Building Docker Image (dev) ==="
                     docker build \
-                        -t "$IMAGE_NAME:${BUILD_NUMBER}" \
-                        -t "$IMAGE_NAME:latest" \
-                        -t "salescrm-platform-salescrm-app:latest" \
-                        -t "salescrm-platform-salescrm-app" \
+                        -t "$IMAGE_NAME:${IMAGE_TAG}-${BUILD_NUMBER}" \
+                        -t "$IMAGE_NAME:${IMAGE_TAG}" \
                         .
                 '''
             }
@@ -84,9 +83,9 @@ pipeline {
                                 --username "$DOCKER_USER" \
                                 --password-stdin || true
 
-                            echo "Pushing images to registry..."
-                            docker push "$IMAGE_NAME:${BUILD_NUMBER}" || true
-                            docker push "$IMAGE_NAME:latest" || true
+                            echo "Pushing dev images to registry..."
+                            docker push "$IMAGE_NAME:${IMAGE_TAG}-${BUILD_NUMBER}" || true
+                            docker push "$IMAGE_NAME:${IMAGE_TAG}" || true
                         '''
                     }
                 }
@@ -96,30 +95,21 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    echo "=== Deploying Latest SalesCRM Backend ==="
+                    echo "=== Deploying Latest SalesCRM Dev Backend ==="
 
-                    # 1. Update /root/apps/backend if it exists
-                    if [ -d "/root/apps/backend" ]; then
-                        echo "Syncing /root/apps/backend with origin/main..."
-                        sudo git -C /root/apps/backend fetch origin main 2>/dev/null || true
-                        sudo git -C /root/apps/backend reset --hard origin/main 2>/dev/null || true
-                    fi
-
-                    # 2. Update /usr/local/bin/deploy-salescrm script
+                    # 1. Update /usr/local/bin/deploy-salescrm-dev script
                     if [ -f "./deploy.sh" ]; then
                         chmod +x ./deploy.sh || true
                         sudo cp ./deploy.sh "$DEPLOY_SCRIPT" || true
                         sudo chmod +x "$DEPLOY_SCRIPT" || true
                     fi
 
-                    # 3. Stop stale container
-                    echo "Stopping stale salescrm-app containers..."
-                    docker stop salescrm-app 2>/dev/null || true
-                    docker rm salescrm-app 2>/dev/null || true
-                    docker stop salescrm-platform-salescrm-app-1 2>/dev/null || true
-                    docker rm salescrm-platform-salescrm-app-1 2>/dev/null || true
+                    # 2. Stop stale dev container (do not touch prod containers)
+                    echo "Stopping stale java-backend-dev container..."
+                    docker stop java-backend-dev 2>/dev/null || true
+                    docker rm java-backend-dev 2>/dev/null || true
 
-                    # 4. Execute deployment
+                    # 3. Execute deployment
                     if [ -x "$DEPLOY_SCRIPT" ]; then
                         echo "Running $DEPLOY_SCRIPT..."
                         sudo "$DEPLOY_SCRIPT"
@@ -128,9 +118,9 @@ pipeline {
                         ./deploy.sh
                     fi
 
-                    # 5. Check deployment status
-                    echo "=== Checking deployment status ==="
-                    docker ps --filter "name=salescrm-app" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+                    # 4. Check deployment status
+                    echo "=== Checking dev deployment status ==="
+                    docker ps --filter "name=java-backend-dev" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
                 '''
             }
         }

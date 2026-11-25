@@ -2,56 +2,51 @@
 set -e
 
 echo "=========================================="
-echo " Starting SalesCRM Backend Deployment "
+echo " Starting SalesCRM Dev Backend Deployment "
 echo "=========================================="
 
-APP_DIR="/root/apps/backend"
-IMAGE_NAME="ssasaleshub/backend:latest"
+APP_DIR="/root/apps/dev"
+export IMAGE_NAME="ssasaleshub/backend:dev"
 
-# 1. Ensure docker network exists
-echo "Ensuring docker network exists..."
-docker network create salescrm-net 2>/dev/null || true
+# 1. Ensure dev docker network exists
+echo "Ensuring dev docker network exists..."
+docker network create dev-backend-network 2>/dev/null || true
 
-# 2. Check latest image (prioritize fresh locally-built image)
+# 2. Check latest dev image (prioritize fresh locally-built image)
 if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-    echo "Pulling latest image: $IMAGE_NAME..."
+    echo "Pulling latest dev image: $IMAGE_NAME..."
     docker pull "$IMAGE_NAME" || true
 else
-    echo "Using fresh local image: $IMAGE_NAME"
+    echo "Using fresh local dev image: $IMAGE_NAME"
 fi
 
-# 3. Deploy via Docker Compose
-if [ -d "$APP_DIR" ] && [ -f "$APP_DIR/docker-compose.yml" ]; then
+# 3. Deploy via existing /root/apps/dev/compose.yml
+if [ -d "$APP_DIR" ] && [ -f "$APP_DIR/compose.yml" ]; then
     echo "Deploying via Docker Compose in $APP_DIR..."
     cd "$APP_DIR"
 
-    # Ensure postgres is running
-    docker compose up -d salescrm-postgres
+    # Ensure dev postgres is running
+    docker compose -f compose.yml up -d postgres
 
-    # Force recreate salescrm-app container with the latest image
-    echo "Recreating salescrm-app container with latest image..."
-    docker compose up -d --force-recreate salescrm-app
-elif [ -f "./docker-compose.yml" ]; then
-    echo "Deploying via Docker Compose in current directory $(pwd)..."
-    docker compose up -d salescrm-postgres
-    docker compose up -d --force-recreate salescrm-app
+    # Force recreate backend container with the latest dev image
+    echo "Recreating java-backend-dev container with latest image ($IMAGE_NAME)..."
+    docker compose -f compose.yml up -d --force-recreate backend
 else
-    echo "Docker compose file not found. Deploying container directly..."
-    docker stop salescrm-app 2>/dev/null || true
-    docker rm salescrm-app 2>/dev/null || true
+    echo "Compose file not found in $APP_DIR. Deploying dev container directly..."
+    docker stop java-backend-dev 2>/dev/null || true
+    docker rm java-backend-dev 2>/dev/null || true
     docker run -d \
-        --name salescrm-app \
+        --name java-backend-dev \
         --restart unless-stopped \
-        --network salescrm-net \
-        -p 8080:8080 \
-        -e SPRING_PROFILES_ACTIVE=prod \
-        -e SPRING_R2DBC_URL=r2dbc:postgresql://salescrm-postgres:5432/salesCRM \
-        -e SPRING_R2DBC_USERNAME=salesCRM \
-        -e SPRING_R2DBC_PASSWORD=salescrm_secret \
-        -e SPRING_LIQUIBASE_URL=jdbc:postgresql://salescrm-postgres:5432/salesCRM \
+        --network dev-backend-network \
+        -p 8081:8080 \
+        -e SPRING_PROFILES_ACTIVE=dev \
+        -e SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/salescrm_dev \
+        -e SPRING_R2DBC_USERNAME="${DB_USER:-salesCRM}" \
+        -e SPRING_R2DBC_PASSWORD="${DB_PASSWORD:-salesCRM}" \
+        -e SPRING_LIQUIBASE_URL=jdbc:postgresql://postgres:5432/salescrm_dev \
         -e SPRING_LIQUIBASE_USER=salesCRM \
-        -e SPRING_LIQUIBASE_PASSWORD=salescrm_secret \
-        -e JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=fd54a454659368e69d6e53ea04554e296d6f1a54c48bdd39da918a39795da4e0cac91738874fa816d9b7bee52cca7793be663c705081c25c33d24f01141c52d1 \
+        -e SPRING_LIQUIBASE_PASSWORD=salesCRM \
         -e _JAVA_OPTIONS="-Xms256m -Xmx512m" \
         "$IMAGE_NAME"
 fi
@@ -61,5 +56,5 @@ echo "Cleaning up dangling images..."
 docker image prune -f
 
 echo "=========================================="
-echo " SalesCRM Backend Deployed Successfully! "
+echo " SalesCRM Dev Backend Deployed Successfully! "
 echo "=========================================="
