@@ -959,4 +959,110 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         sb.append("SSA Saleshub • ssasaleshub.cloud\n");
         return sb.toString();
     }
+
+    @Override
+    public Mono<Void> sendStaffAppInviteEmail(String toEmail, String staffName) {
+        String playStoreUrl = "https://play.google.com/store/apps/details?id=com.ssasaleshub.crm";
+        String playBadgeUrl = "https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png";
+        String greeting = (staffName != null && !staffName.isBlank()) ? "Hi " + escapeHtml(staffName.trim()) + "," : "Hi Team,";
+        String plainGreeting = (staffName != null && !staffName.isBlank()) ? "Hi " + staffName.trim() + "," : "Hi Team,";
+
+        String subject = "Install the SSA Saleshub Mobile App";
+
+        String htmlBody = """
+            <!doctype html>
+            <html lang='en'>
+            <head>
+              <meta charset='UTF-8'>
+              <meta name='viewport' content='width=device-width,initial-scale=1.0'>
+              <style>
+                @media only screen and (max-width:600px){
+                  .email-wrapper{padding:12px 6px !important;}
+                  .email-card{width:100% !important;max-width:100% !important;border-radius:12px !important;}
+                  .header-box{padding:14px 16px !important;}
+                  .brand-title{font-size:16px !important;}
+                  .brand-sub{font-size:10px !important;}
+                  .body-box{padding:22px 16px !important;}
+                  .footer-box{padding:16px 14px !important;}
+                }
+              </style>
+            </head>
+            <body style='margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#1e293b;-webkit-font-smoothing:antialiased;'>
+              <table width='100%' cellpadding='0' cellspacing='0' border='0' bgcolor='#f8fafc' class='email-wrapper' style='padding:24px 10px;margin:0 auto;width:100% !important;'>
+                <tr>
+                  <td align='center'>
+                    <table width='100%' cellpadding='0' cellspacing='0' border='0' class='email-card' style='max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.04);'>
+                      <!-- Brand Header -->
+                      <tr>
+                        <td class='header-box' style='background:linear-gradient(135deg,#064e3b 0%,#047857 55%,#059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>
+                          <table cellpadding='0' cellspacing='0' border='0' width='100%'>
+                            <tr>
+                              <td style='vertical-align:middle;width:40px;min-width:40px;'>
+                                <img src='cid:brandLogo' width='38' height='38' alt='SSA Saleshub' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' />
+                              </td>
+                              <td style='vertical-align:middle;padding-left:12px;'>
+                                <div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>
+                                <div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>Staff Mobile App</div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <!-- Body -->
+                      <tr>
+                        <td class='body-box' style='padding:26px 24px 22px;'>
+                          <p style='font-size:15px;margin:0 0 12px 0;color:#1e293b;line-height:1.5;'>""" + greeting + """
+                          </p>
+                          <p style='font-size:14px;line-height:1.6;color:#475569;margin:0 0 18px 0;'>
+                            Our official <strong>SSA Saleshub</strong> Android app is live on the Google Play Store. Please install it on your phone so you can get instant lead alerts, manage follow-ups, and update your calls on the go.
+                          </p>
+
+                          <!-- Google Play Store Badge -->
+                          <div style='text-align:center;margin:20px 0 8px;'>
+                            <a href='""" + playStoreUrl + """
+                            ' target='_blank' style='display:inline-block;text-decoration:none;'>
+                              <img src='""" + playBadgeUrl + """
+                              ' alt='Get it on Google Play' width='186' style='display:block;margin:0 auto;border:0;height:auto;' />
+                            </a>
+                          </div>
+                          <p style='text-align:center;margin:0 0 20px 0;font-size:12px;'>
+                            <a href='""" + playStoreUrl + """
+                            ' target='_blank' style='color:#047857;text-decoration:underline;'>Open in Google Play Store</a>
+                          </p>
+
+                          <p style='font-size:13px;color:#64748b;line-height:1.6;margin:0 0 18px 0;'>
+                            If you have any trouble signing in, just reply to this email or reach out to the admin team.
+                          </p>
+
+                          <hr style='border:none;border-top:1px solid #f1f5f9;margin:0 0 16px 0;' />
+                          <p style='font-size:13px;color:#475569;line-height:1.5;margin:0;'>
+                            Thanks,<br/>
+                            <strong style='color:#065f46;'>SSA Saleshub Team</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      <!-- Footer -->
+                      <tr>
+                        <td class='footer-box' style='background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;'>
+                          <p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; """ + LocalDateTime.now().getYear() + """
+                           SSA Saleshub &nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """;
+
+        String plainText = plainGreeting + "\n\n"
+            + "Our official SSA Saleshub Android app is live on the Google Play Store. Please install it on your phone so you can get instant lead alerts, manage follow-ups, and update your calls on the go.\n\n"
+            + "Download on Google Play:\n" + playStoreUrl + "\n\n"
+            + "If you have any trouble signing in, just reply to this email or reach out to the admin team.\n\n"
+            + "Thanks,\nSSA Saleshub Team\nssasaleshub.cloud\n";
+
+        return Mono.fromRunnable(() -> doSend(toEmail, null, subject, plainText, htmlBody, true))
+                   .subscribeOn(Schedulers.boundedElastic()).then();
+    }
 }

@@ -45,21 +45,26 @@ public class FacebookWebhookVerificationService {
             return false;
         }
 
+        byte[] tokenBytes = (token != null ? token : "").getBytes(StandardCharsets.UTF_8);
+
         String configuredToken = facebookProperties.getVerifyToken();
-        if (configuredToken == null || configuredToken.isBlank()) {
-            LOG.error("Meta webhook verification failed: application.facebook.verify-token is not configured");
-            return false;
+        if (configuredToken != null && !configuredToken.isBlank() &&
+            MessageDigest.isEqual(configuredToken.getBytes(StandardCharsets.UTF_8), tokenBytes)) {
+            return true;
         }
 
-        boolean isValid = MessageDigest.isEqual(
-            configuredToken.getBytes(StandardCharsets.UTF_8),
-            (token != null ? token : "").getBytes(StandardCharsets.UTF_8)
-        );
-
-        if (!isValid) {
-            LOG.warn("Meta webhook verification rejected: verify token mismatch");
+        if (facebookProperties.getAccounts() != null) {
+            for (FacebookProperties.MetaAccountConfig account : facebookProperties.getAccounts()) {
+                if (account != null && account.getVerifyToken() != null && !account.getVerifyToken().isBlank() &&
+                    MessageDigest.isEqual(account.getVerifyToken().getBytes(StandardCharsets.UTF_8), tokenBytes)) {
+                    LOG.info("Meta webhook verification matched configured account '{}'", account.getName());
+                    return true;
+                }
+            }
         }
-        return isValid;
+
+        LOG.warn("Meta webhook verification rejected: verify token mismatch or not configured");
+        return false;
     }
 
     /**
@@ -71,25 +76,40 @@ public class FacebookWebhookVerificationService {
      * @return true if signature is valid, false otherwise
      */
     public boolean verifySignature(String signatureHeader, byte[] payloadBytes) {
-        String appSecret = facebookProperties.getAppSecret();
-        if (appSecret == null || appSecret.isBlank()) {
-            LOG.error("Meta signature verification failed: application.facebook.app-secret is not configured");
-            return false;
-        }
-
         if (signatureHeader == null || !signatureHeader.startsWith(SIGNATURE_PREFIX)) {
             LOG.warn("Meta signature verification failed: invalid or missing X-Hub-Signature-256 header");
             return false;
         }
 
         String expectedHash = signatureHeader.substring(SIGNATURE_PREFIX.length()).trim();
+        byte[] safePayload = payloadBytes != null ? payloadBytes : new byte[0];
 
+        String primarySecret = facebookProperties.getAppSecret();
+        if (primarySecret != null && !primarySecret.isBlank() && matchesHmac(primarySecret, safePayload, expectedHash)) {
+            return true;
+        }
+
+        if (facebookProperties.getAccounts() != null) {
+            for (FacebookProperties.MetaAccountConfig account : facebookProperties.getAccounts()) {
+                if (account != null && account.getAppSecret() != null && !account.getAppSecret().isBlank() &&
+                    matchesHmac(account.getAppSecret(), safePayload, expectedHash)) {
+                    LOG.info("Meta webhook signature matched configured account '{}'", account.getName());
+                    return true;
+                }
+            }
+        }
+
+        LOG.warn("Meta signature verification failed: no configured App Secret matched X-Hub-Signature-256");
+        return false;
+    }
+
+    private boolean matchesHmac(String secret, byte[] payloadBytes, String expectedHash) {
         try {
             Mac mac = Mac.getInstance(HMAC_SHA256);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(appSecret.getBytes(StandardCharsets.UTF_8), HMAC_SHA256);
+            SecretKeySpec secretKeySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_SHA256);
             mac.init(secretKeySpec);
 
-            byte[] hmacBytes = mac.doFinal(payloadBytes != null ? payloadBytes : new byte[0]);
+            byte[] hmacBytes = mac.doFinal(payloadBytes);
             String calculatedHash = HexFormat.of().formatHex(hmacBytes);
 
             return MessageDigest.isEqual(

@@ -229,4 +229,32 @@ public class EmailResource {
                         "message", "Calendar reminder email dispatched to " + toEmail
                 )));
     }
+
+    /**
+     * POST /api/email/staff-app-invite
+     * Send a staff invitation email with the Google Play Store download link for SSA Saleshub.
+     */
+    @PostMapping("/staff-app-invite")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public Mono<ResponseEntity<Map<String, String>>> sendStaffAppInvite(
+            @RequestBody Map<String, String> body) {
+
+        String toEmail = body.getOrDefault("toEmail", "").trim();
+        String staffName = body.getOrDefault("staffName", body.getOrDefault("name", "")).trim();
+
+        if (toEmail.isBlank()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "toEmail is required"
+            )));
+        }
+
+        LOG.info("[EmailResource] Staff Play Store app invite requested for: {}", toEmail);
+
+        return emailService.sendStaffAppInviteEmail(toEmail, staffName)
+                .thenReturn(ResponseEntity.ok(Map.of(
+                        "status", "success",
+                        "message", "Staff app invite email dispatched to " + toEmail
+                )));
+    }
 }

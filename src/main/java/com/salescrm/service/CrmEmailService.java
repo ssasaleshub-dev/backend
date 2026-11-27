@@ -112,6 +112,11 @@ public interface CrmEmailService {
     }
 
     /**
+     * Send a staff invite email to install the SSA Saleshub Android app from Google Play Store.
+     */
+    Mono<Void> sendStaffAppInviteEmail(String toEmail, String staffName);
+
+    /**
      * Send a custom bulk/marketing email (admin-triggered).
      */
     Mono<Void> sendBulkEmail(String toEmail, String subject, String htmlBody);

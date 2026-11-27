@@ -207,6 +207,15 @@ application:
     page-access-token: "${FB_PAGE_ACCESS_TOKEN:EAAQyPfrBFAUBTP5FPDyNDH0nvfZAJSR3LXXRaVn13GQ1pwrwE7QZBhDkpqrd9m3RYIpo2O9lsGSZBhey5EQl1byXYZAHwiXMjJZCmeRybMkAHIGV3Lr2tutjSslB5yRyFeDWJ6TQyEO6hhyvOEn9Sz8HkhNgy7DkhOsfkGFuG78JAu5jiTpcuVcP4B50q}"
     graph-api-version: "${FB_GRAPH_API_VERSION:v21.0}"
     graph-api-base-url: "${FB_GRAPH_API_BASE_URL:https://graph.facebook.com}"
+    accounts:
+      - name: "team2"
+        app-id: "${FB_TEAM2_APP_ID:1502000385141681}"
+        app-secret: "${FB_TEAM2_APP_SECRET:}"
+        verify-token: "${FB_TEAM2_VERIFY_TOKEN:salescrm_leadgen_secret_tokenbasdiug37846y}"
+        page-id: "${FB_TEAM2_PAGE_ID:103160805770841}"
+        page-access-token: "${FB_TEAM2_PAGE_ACCESS_TOKEN:}"
+        allowed-campaign-ids: []
+        allowed-form-ids: []
   google:
     client-id: "${GOOGLE_CLIENT_ID:}"
     client-secret: "${GOOGLE_CLIENT_SECRET:}"

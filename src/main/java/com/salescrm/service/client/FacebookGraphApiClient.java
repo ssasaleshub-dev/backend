@@ -138,7 +138,13 @@ public class FacebookGraphApiClient {
      * completes empty on any error so lead ingestion never fails because of it.
      */
     public Mono<String> getFormName(String formId) {
-        String accessToken = facebookProperties.getPageAccessToken();
+        return getFormName(formId, facebookProperties.getPageAccessToken());
+    }
+
+    /**
+     * Looks up an Instant Form's real name using a specific Page Access Token.
+     */
+    public Mono<String> getFormName(String formId, String accessToken) {
         if (formId == null || formId.isBlank() || accessToken == null || accessToken.isBlank()) {
             return Mono.empty();
         }

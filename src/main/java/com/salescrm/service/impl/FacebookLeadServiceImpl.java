@@ -1,5 +1,6 @@
 package com.salescrm.service.impl;
 
+import com.salescrm.config.FacebookProperties;
 import com.salescrm.domain.*;
 import com.salescrm.domain.enumeration.LeadStatus;
 import com.salescrm.domain.enumeration.PlatformType;
@@ -54,6 +55,9 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
     private final CrmNotificationService crmNotificationService;
     private final UserRepository userRepository;
     private final LeadBatchNotificationService leadBatchNotificationService;
+
+    @Autowired(required = false)
+    private FacebookProperties facebookProperties;
 
     public FacebookLeadServiceImpl(
         FacebookGraphApiClient graphApiClient,
@@ -173,6 +177,19 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             return Mono.empty();
         }
 
+        FacebookProperties.MetaAccountConfig matchedAccount = (facebookProperties != null)
+            ? facebookProperties.findAccountByPageId(pageId)
+            : null;
+
+        if (matchedAccount != null && matchedAccount.getAllowedFormIds() != null && !matchedAccount.getAllowedFormIds().isEmpty()
+            && formId != null && !formId.isBlank() && !matchedAccount.getAllowedFormIds().contains(formId.trim())) {
+            LOG.info("Skipping lead {} from page {}: form_id {} is not in allowedFormIds for account '{}'",
+                leadgenId, pageId, formId, matchedAccount.getName());
+            return Mono.empty();
+        }
+
+        String resolvedToken = (facebookProperties != null) ? facebookProperties.resolvePageAccessToken(pageId) : null;
+
         // Idempotency check: Guard against duplicate webhooks from Meta
         return leadRepository.findByExternalId(leadgenId)
             .flatMap(existing -> {
@@ -181,19 +198,32 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 return Mono.just(existing);
             })
             .switchIfEmpty(
-                Mono.defer(() ->
-                    graphApiClient.getLeadDetails(leadgenId)
-                        .map(graphResponse -> {
+                Mono.defer(() -> {
+                    var graphCall = (resolvedToken != null && !resolvedToken.isBlank())
+                        ? graphApiClient.getLeadDetails(leadgenId, resolvedToken)
+                        : graphApiClient.getLeadDetails(leadgenId);
+
+                    return graphCall
+                        .flatMap(graphResponse -> {
+                            if (matchedAccount != null && matchedAccount.getAllowedCampaignIds() != null
+                                && !matchedAccount.getAllowedCampaignIds().isEmpty()) {
+                                String cid = graphResponse.getCampaignId();
+                                if (cid == null || !matchedAccount.getAllowedCampaignIds().contains(cid.trim())) {
+                                    LOG.info("Skipping lead {} from page {}: campaign_id {} is not in allowedCampaignIds for account '{}'",
+                                        leadgenId, pageId, cid, matchedAccount.getName());
+                                    return Mono.empty();
+                                }
+                            }
                             if ((graphResponse.getAdId() == null || graphResponse.getAdId().isBlank()) && adId != null) {
                                 graphResponse.setAdId(adId);
                             }
                             if ((graphResponse.getFormId() == null || graphResponse.getFormId().isBlank()) && formId != null) {
                                 graphResponse.setFormId(formId);
                             }
-                            return leadMapper.toRowDTO(graphResponse, pageId);
+                            return Mono.just(leadMapper.toRowDTO(graphResponse, pageId));
                         })
-                        .flatMap(row -> persistLeadData(row, pageId))
-                )
+                        .flatMap(row -> persistLeadData(row, pageId));
+                })
             )
             .doOnError(err -> LOG.error("Failed to process Meta lead {}: {}", leadgenId, err.getMessage(), err));
     }
