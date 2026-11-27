@@ -62,7 +62,8 @@ public class WebConfigurer implements WebFluxConfigurer {
     @Override
     public void addResourceHandlers(org.springframework.web.reactive.config.ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")
-            .addResourceLocations("classpath:/static/");
+            .addResourceLocations("classpath:/static/")
+            .setCacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePublic().immutable());
     }
 
     @Bean

@@ -7,7 +7,9 @@ import com.salescrm.service.dto.WeeklyReportStatsDTO;
 import com.salescrm.service.util.ChartGeneratorUtil;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +54,10 @@ public class CrmEmailServiceImpl implements CrmEmailService {
 
     private static final String DATE_FORMAT = "dd MMM yyyy, hh:mm a";
     private static final String BRAND_NAME  = "SSA Saleshub";
+
+    // Brand logo served via Cloudflare CDN with immutable long-term caching
+    private static final String BRAND_LOGO_URL =
+        "https://ssasaleshub.cloud/brand-logo.jpg";
 
     // Logo Emerald & Gold Theme Constants
     private static final String LOGO_GRADIENT_HEADER =
@@ -367,57 +373,84 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         LOG.info("[EMAIL] Sending '{}' to '{}' | html={}", subject, to, html);
         try {
             MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                msg,
-                MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                StandardCharsets.UTF_8.name()
-            );
+            boolean hasCidLogo = html && htmlBody != null && htmlBody.contains("cid:brandLogo");
+            boolean hasInlineChart = html && inlineChartBytes != null && inlineChartBytes.length > 0;
+            boolean needsRelatedPart = hasCidLogo || hasInlineChart;
 
-            helper.setFrom(new InternetAddress(mailUsername, mailFromName, StandardCharsets.UTF_8.name()));
-            helper.setTo(to);
-            if (cc != null && !cc.isBlank()) {
-                for (String addr : cc.split(",")) {
-                    helper.addCc(addr.trim());
+            if (html && !needsRelatedPart) {
+                // Pure multipart/alternative (plain-text + HTML) with zero MIME attachment wrappers
+                // so mobile Gmail never renders an "inline" attachment card at the bottom.
+                msg.setFrom(new InternetAddress(mailUsername, mailFromName, StandardCharsets.UTF_8.name()));
+                msg.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse(to));
+                if (cc != null && !cc.isBlank()) {
+                    msg.setRecipients(jakarta.mail.Message.RecipientType.CC, InternetAddress.parse(cc));
                 }
-            }
-            helper.setSubject(subject);
+                msg.setSubject(subject, StandardCharsets.UTF_8.name());
 
-            // Google Anti-Spam Standard: Provide both clean plain-text and HTML
-            if (html) {
                 String cleanPlain = (plainText != null && !plainText.isBlank())
                     ? plainText
                     : htmlBody.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
-                helper.setText(cleanPlain, htmlBody);
+
+                MimeMultipart alternative = new MimeMultipart("alternative");
+                MimeBodyPart textPart = new MimeBodyPart();
+                textPart.setText(cleanPlain, StandardCharsets.UTF_8.name(), "plain");
+                MimeBodyPart htmlPart = new MimeBodyPart();
+                htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
+                alternative.addBodyPart(textPart);
+                alternative.addBodyPart(htmlPart);
+                msg.setContent(alternative);
             } else {
-                helper.setText(htmlBody, false);
+                MimeMessageHelper helper = new MimeMessageHelper(
+                    msg,
+                    needsRelatedPart ? MimeMessageHelper.MULTIPART_MODE_RELATED : MimeMessageHelper.MULTIPART_MODE_NO,
+                    StandardCharsets.UTF_8.name()
+                );
+
+                helper.setFrom(new InternetAddress(mailUsername, mailFromName, StandardCharsets.UTF_8.name()));
+                helper.setTo(to);
+                if (cc != null && !cc.isBlank()) {
+                    for (String addr : cc.split(",")) {
+                        helper.addCc(addr.trim());
+                    }
+                }
+                helper.setSubject(subject);
+
+                // Google Anti-Spam Standard: Provide both clean plain-text and HTML
+                if (html) {
+                    String cleanPlain = (plainText != null && !plainText.isBlank())
+                        ? plainText
+                        : htmlBody.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+                    helper.setText(cleanPlain, htmlBody);
+                } else {
+                    helper.setText(htmlBody, false);
+                }
+
+                // Brand Logo CID Embedding (only when template explicitly references cid:brandLogo)
+                if (hasCidLogo) {
+                    try {
+                        ClassPathResource logoResource = new ClassPathResource("static/brand-logo.jpg");
+                        if (logoResource.exists()) {
+                            helper.addInline("brandLogo", logoResource, "image/jpeg");
+                        }
+                    } catch (Exception logoEx) {
+                        LOG.debug("[EMAIL] Logo inline attach skipped: {}", logoEx.getMessage());
+                    }
+                }
+
+                // Weekly Chart PNG CID Embedding
+                if (hasInlineChart) {
+                    try {
+                        helper.addInline("weeklyChart", new ByteArrayResource(inlineChartBytes), "image/png");
+                    } catch (Exception chartEx) {
+                        LOG.debug("[EMAIL] Weekly chart inline attach skipped: {}", chartEx.getMessage());
+                    }
+                }
             }
 
-            // Google & RFC 5322 Anti-Spam Headers
-            msg.setHeader("Auto-Submitted", "auto-generated");
-            msg.setHeader("X-Auto-Response-Suppress", "All");
-            msg.setHeader("Precedence", "bulk");
-            msg.setHeader("List-Unsubscribe", "<mailto:" + mailUsername + "?subject=unsubscribe>");
-            msg.setHeader("X-Report-Abuse-To", mailUsername);
+            // RFC 5322 Standard Transactional Headers (ensures high inbox placement and prevents Spam classification)
+            msg.setSentDate(new java.util.Date());
+            msg.setReplyTo(new InternetAddress[] { new InternetAddress(mailUsername, mailFromName, StandardCharsets.UTF_8.name()) });
             msg.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
-
-            // Brand Logo CID Embedding (with fallback to web URL)
-            try {
-                ClassPathResource logoResource = new ClassPathResource("static/brand-logo.jpg");
-                if (logoResource.exists()) {
-                    helper.addInline("brandLogo", logoResource, "image/jpeg");
-                }
-            } catch (Exception logoEx) {
-                LOG.debug("[EMAIL] Logo inline attach skipped: {}", logoEx.getMessage());
-            }
-
-            // Weekly Chart PNG CID Embedding
-            if (inlineChartBytes != null && inlineChartBytes.length > 0) {
-                try {
-                    helper.addInline("weeklyChart", new ByteArrayResource(inlineChartBytes), "image/png");
-                } catch (Exception chartEx) {
-                    LOG.debug("[EMAIL] Weekly chart inline attach skipped: {}", chartEx.getMessage());
-                }
-            }
 
             mailSender.send(msg);
             LOG.info("[EMAIL] ✅ Sent '{}' to '{}'", subject, to);
@@ -480,7 +513,8 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                           <table cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                               <td style="vertical-align:middle;width:40px;min-width:40px;">
-                                <img src="cid:brandLogo" width="38" height="38" alt="SSA Logo" style="display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);" />
+                                <img src=\"""" + BRAND_LOGO_URL + """
+                                " width="38" height="38" alt="SSA Logo" style="display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);" />
                               </td>
                               <td style="vertical-align:middle;padding-left:12px;">
                                 <div class="brand-title" style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;">""" + BRAND_NAME + """
@@ -582,7 +616,8 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                           <table cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                               <td style="vertical-align:middle;width:40px;min-width:40px;">
-                                <img src="cid:brandLogo" width="38" height="38" alt="SSA Logo" style="display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);" />
+                                <img src=\"""" + BRAND_LOGO_URL + """
+                                " width="38" height="38" alt="SSA Logo" style="display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);" />
                               </td>
                               <td style="vertical-align:middle;padding-left:12px;">
                                 <div class="brand-title" style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;">""" + BRAND_NAME + """
@@ -706,7 +741,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
           // Brand Header
           .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
           .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
-          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
+          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='").append(BRAND_LOGO_URL).append("' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
           .append("<td style='vertical-align:middle;padding-left:12px;'>")
           .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
           .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>Weekly Performance Summary</div>")
@@ -861,7 +896,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
           // Brand Header with Emerald Gradient & Gold bottom stripe
           .append("<tr><td class='header-box' style='background:linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);border-bottom:3px solid #facc15;padding:16px 20px;'>")
           .append("<table cellpadding='0' cellspacing='0' border='0' width='100%'><tr>")
-          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='cid:brandLogo' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
+          .append("<td style='vertical-align:middle;width:40px;min-width:40px;'><img src='").append(BRAND_LOGO_URL).append("' width='38' height='38' alt='SSA Logo' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' /></td>")
           .append("<td style='vertical-align:middle;padding-left:12px;'>")
           .append("<div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>")
           .append("<div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>").append(subTitle).append("</div>")
@@ -967,7 +1002,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
         String greeting = (staffName != null && !staffName.isBlank()) ? "Hi " + escapeHtml(staffName.trim()) + "," : "Hi Team,";
         String plainGreeting = (staffName != null && !staffName.isBlank()) ? "Hi " + staffName.trim() + "," : "Hi Team,";
 
-        String subject = "Install the SSA Saleshub Mobile App";
+        String subject = "Your SSA Saleshub Mobile CRM Access";
 
         String htmlBody = """
             <!doctype html>
@@ -998,11 +1033,12 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                           <table cellpadding='0' cellspacing='0' border='0' width='100%'>
                             <tr>
                               <td style='vertical-align:middle;width:40px;min-width:40px;'>
-                                <img src='cid:brandLogo' width='38' height='38' alt='SSA Saleshub' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' />
+                                <img src='""" + BRAND_LOGO_URL + """
+                                ' width='38' height='38' alt='SSA Saleshub' style='display:block;border-radius:10px;border:1.5px solid rgba(250,204,21,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.25);' />
                               </td>
                               <td style='vertical-align:middle;padding-left:12px;'>
                                 <div class='brand-title' style='color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.2px;line-height:1.2;white-space:nowrap;'>SSA Saleshub</div>
-                                <div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>Staff Mobile App</div>
+                                <div class='brand-sub' style='color:#fef08a;font-size:11px;font-weight:500;margin-top:2px;white-space:nowrap;'>Staff Mobile Workspace</div>
                               </td>
                             </tr>
                           </table>
@@ -1014,7 +1050,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                           <p style='font-size:15px;margin:0 0 12px 0;color:#1e293b;line-height:1.5;'>""" + greeting + """
                           </p>
                           <p style='font-size:14px;line-height:1.6;color:#475569;margin:0 0 18px 0;'>
-                            Our official <strong>SSA Saleshub</strong> Android app is live on the Google Play Store. Please install it on your phone so you can get instant lead alerts, manage follow-ups, and update your calls on the go.
+                            Your <strong>SSA Saleshub</strong> mobile CRM access is ready. You can download the official Android application from Google Play to track assigned leads, receive instant activity alerts, and manage client follow-ups on the go.
                           </p>
 
                           <!-- Google Play Store Badge -->
@@ -1031,12 +1067,12 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                           </p>
 
                           <p style='font-size:13px;color:#64748b;line-height:1.6;margin:0 0 18px 0;'>
-                            If you have any trouble signing in, just reply to this email or reach out to the admin team.
+                            If you need any assistance logging into your account, please reply directly to this email or contact your administrator.
                           </p>
 
                           <hr style='border:none;border-top:1px solid #f1f5f9;margin:0 0 16px 0;' />
                           <p style='font-size:13px;color:#475569;line-height:1.5;margin:0;'>
-                            Thanks,<br/>
+                            Best regards,<br/>
                             <strong style='color:#065f46;'>SSA Saleshub Team</strong>
                           </p>
                         </td>
@@ -1046,6 +1082,7 @@ public class CrmEmailServiceImpl implements CrmEmailService {
                         <td class='footer-box' style='background:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;'>
                           <p style='margin:0;color:#64748b;font-size:12px;line-height:1.6;'>&copy; """ + LocalDateTime.now().getYear() + """
                            SSA Saleshub &nbsp;&bull;&nbsp; <a href='https://ssasaleshub.cloud' style='color:#059669;font-weight:600;text-decoration:none;'>ssasaleshub.cloud</a></p>
+                          <p style='margin:4px 0 0 0;color:#94a3b8;font-size:11px;'>This invitation was sent to your authorized staff email for CRM account access.</p>
                         </td>
                       </tr>
                     </table>
@@ -1057,10 +1094,11 @@ public class CrmEmailServiceImpl implements CrmEmailService {
             """;
 
         String plainText = plainGreeting + "\n\n"
-            + "Our official SSA Saleshub Android app is live on the Google Play Store. Please install it on your phone so you can get instant lead alerts, manage follow-ups, and update your calls on the go.\n\n"
+            + "Your SSA Saleshub mobile CRM access is ready. You can download the official Android application from Google Play to track assigned leads, receive instant activity alerts, and manage client follow-ups on the go.\n\n"
             + "Download on Google Play:\n" + playStoreUrl + "\n\n"
-            + "If you have any trouble signing in, just reply to this email or reach out to the admin team.\n\n"
-            + "Thanks,\nSSA Saleshub Team\nssasaleshub.cloud\n";
+            + "If you need any assistance logging into your account, please reply directly to this email or contact your administrator.\n\n"
+            + "Best regards,\nSSA Saleshub Team\nhttps://ssasaleshub.cloud\n\n"
+            + "This invitation was sent to your authorized staff email for CRM account access.\n";
 
         return Mono.fromRunnable(() -> doSend(toEmail, null, subject, plainText, htmlBody, true))
                    .subscribeOn(Schedulers.boundedElastic()).then();
