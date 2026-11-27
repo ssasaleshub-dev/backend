@@ -213,7 +213,7 @@ application:
         app-secret: "${FB_TEAM2_APP_SECRET:764346d284dd976bf07d4ceff223fd19}"
         verify-token: "${FB_TEAM2_VERIFY_TOKEN:salescrm_leadgen_secret_tokenbasdiug37846y}"
         page-id: "${FB_TEAM2_PAGE_ID:103160805770841}"
-        page-access-token: "${FB_TEAM2_PAGE_ACCESS_TOKEN:EAAVWD7doq7EBTFdrlugMMDznMgiW4mTun7c7aQI8PiG0v0ps3dAKJIWpm87st3ZBaLpZAPaUIfXzlM132NBraCFfvrvg8IOvx0F9pN2sbJBdqHOD2oy2AwnAEBa5nUbe0lZCutFqm6re8nXH5F70bZAp407QShc0xBtD8kw98ZC8mEXpn4xfNgkeK9iNr}"
+        page-access-token: "${FB_TEAM2_PAGE_ACCESS_TOKEN:EAAVWD7doq7EBTDoCKFTu7qaD6AZBdBIFVzmy9nyvNV0vyPJJIoZAwboVAZBdqpugRaVRtjxESHlMOI7YJ3hK9jqZAH5o0ypz5BIpMWBYgq9D1dwLJ36vLqlJ5C1Snqp2cFZAjuAp74NEKkt5mPJkDDUTQ4asq4ZB3SNpe6JK7AqLUMhEqQja9ZBZCxgrZBTOP0cTaN9IZD}"
         allowed-campaign-ids: []
         allowed-form-ids: []
   google:
