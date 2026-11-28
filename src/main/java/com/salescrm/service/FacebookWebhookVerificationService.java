@@ -49,14 +49,14 @@ public class FacebookWebhookVerificationService {
 
         String configuredToken = facebookProperties.getVerifyToken();
         if (configuredToken != null && !configuredToken.isBlank() &&
-            MessageDigest.isEqual(configuredToken.getBytes(StandardCharsets.UTF_8), tokenBytes)) {
+            MessageDigest.isEqual(configuredToken.trim().getBytes(StandardCharsets.UTF_8), tokenBytes)) {
             return true;
         }
 
         if (facebookProperties.getAccounts() != null) {
             for (FacebookProperties.MetaAccountConfig account : facebookProperties.getAccounts()) {
                 if (account != null && account.getVerifyToken() != null && !account.getVerifyToken().isBlank() &&
-                    MessageDigest.isEqual(account.getVerifyToken().getBytes(StandardCharsets.UTF_8), tokenBytes)) {
+                    MessageDigest.isEqual(account.getVerifyToken().trim().getBytes(StandardCharsets.UTF_8), tokenBytes)) {
                     LOG.info("Meta webhook verification matched configured account '{}'", account.getName());
                     return true;
                 }
@@ -85,14 +85,14 @@ public class FacebookWebhookVerificationService {
         byte[] safePayload = payloadBytes != null ? payloadBytes : new byte[0];
 
         String primarySecret = facebookProperties.getAppSecret();
-        if (primarySecret != null && !primarySecret.isBlank() && matchesHmac(primarySecret, safePayload, expectedHash)) {
+        if (primarySecret != null && !primarySecret.isBlank() && matchesHmac(primarySecret.trim(), safePayload, expectedHash)) {
             return true;
         }
 
         if (facebookProperties.getAccounts() != null) {
             for (FacebookProperties.MetaAccountConfig account : facebookProperties.getAccounts()) {
                 if (account != null && account.getAppSecret() != null && !account.getAppSecret().isBlank() &&
-                    matchesHmac(account.getAppSecret(), safePayload, expectedHash)) {
+                    matchesHmac(account.getAppSecret().trim(), safePayload, expectedHash)) {
                     LOG.info("Meta webhook signature matched configured account '{}'", account.getName());
                     return true;
                 }

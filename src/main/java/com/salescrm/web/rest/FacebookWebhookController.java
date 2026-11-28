@@ -111,6 +111,8 @@ public class FacebookWebhookController {
                         lead.getExternalId(), lead.getId()),
                     error -> LOG.error("Error asynchronously ingesting Meta lead: {}", error.getMessage(), error)
                 );
+        } else if (payload != null) {
+            LOG.info("Ignoring Meta webhook event with unsupported object type '{}'", payload.getObject());
         }
 
         return Mono.just(ResponseEntity.ok("EVENT_RECEIVED"));

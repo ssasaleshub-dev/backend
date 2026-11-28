@@ -158,7 +158,12 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                         LOG.info("Processing Meta leadgen event: leadgen_id={}, page_id={}, form_id={}, ad_id={}",
                             leadgenId, effectivePageId, formId, adId);
 
-                        return processLead(leadgenId, effectivePageId, adId, formId);
+                        return processLead(leadgenId, effectivePageId, adId, formId)
+                            .onErrorResume(err -> {
+                                LOG.error("Failed processing Meta leadgen_id={} for page_id={}: {}",
+                                    leadgenId, effectivePageId, err.getMessage(), err);
+                                return Mono.empty();
+                            });
                     });
             });
     }
@@ -189,6 +194,10 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
         }
 
         String resolvedToken = (facebookProperties != null) ? facebookProperties.resolvePageAccessToken(pageId) : null;
+        String accountLabel = (matchedAccount != null && matchedAccount.getName() != null && !matchedAccount.getName().isBlank())
+            ? matchedAccount.getName()
+            : "primary";
+        LOG.info("Routing Meta lead {} (page_id={}) through '{}' account configuration", leadgenId, pageId, accountLabel);
 
         // Idempotency check: Guard against duplicate webhooks from Meta
         return leadRepository.findByExternalId(leadgenId)
@@ -222,13 +231,13 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                             }
                             return Mono.just(leadMapper.toRowDTO(graphResponse, pageId));
                         })
-                        .flatMap(row -> persistLeadData(row, pageId));
+                        .flatMap(row -> persistLeadData(row, pageId, resolvedToken));
                 })
             )
             .doOnError(err -> LOG.error("Failed to process Meta lead {}: {}", leadgenId, err.getMessage(), err));
     }
 
-    private Mono<Lead> persistLeadData(ExcelLeadRowDTO row, String pageId) {
+    private Mono<Lead> persistLeadData(ExcelLeadRowDTO row, String pageId, String resolvedToken) {
         Instant createdTime = dateTimeParser.parse(row.getCreatedTime());
         if (createdTime == null) {
             createdTime = Instant.now();
@@ -248,7 +257,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                     .flatMap(campaign -> resolveAdSet(row, finalCreatedTime, campaign))
                     .flatMap(adSet -> resolveAd(row, finalCreatedTime, adSet))
                     .flatMap(ad ->
-                        resolveLeadForm(row, finalCreatedTime)
+                        resolveLeadForm(row, finalCreatedTime, resolvedToken)
                             .flatMap(leadForm -> saveLead(row, finalCreatedTime, customer, ad, leadForm, pageId))
                     )
             )
@@ -386,7 +395,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
             }));
     }
 
-    private Mono<LeadForm> resolveLeadForm(ExcelLeadRowDTO row, Instant createdTime) {
+    private Mono<LeadForm> resolveLeadForm(ExcelLeadRowDTO row, Instant createdTime, String resolvedToken) {
         String extId = row.getFormId();
         if (extId == null || extId.isBlank()) {
             return Mono.just(new LeadForm());
@@ -397,7 +406,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 // Replace an old placeholder ("Instant Form 123...") with the form's real name
                 String current = existing.getName();
                 if (current == null || current.isBlank() || current.startsWith("Instant Form ")) {
-                    return graphApiClient.getFormName(extId)
+                    return fetchFormName(extId, resolvedToken)
                         .flatMap(realName -> {
                             existing.setName(realName);
                             return leadFormRepository.save(existing);
@@ -407,7 +416,7 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                 return Mono.just(existing);
             })
             .switchIfEmpty(Mono.defer(() ->
-                graphApiClient.getFormName(extId)
+                fetchFormName(extId, resolvedToken)
                     .defaultIfEmpty(
                         (row.getFormName() != null && !row.getFormName().isBlank() && !row.getFormName().startsWith("Instant Form "))
                             ? row.getFormName().trim()
@@ -422,6 +431,13 @@ public class FacebookLeadServiceImpl implements FacebookLeadService {
                         return leadFormRepository.save(form);
                     })
             ));
+    }
+
+    private Mono<String> fetchFormName(String formId, String resolvedToken) {
+        if (resolvedToken != null && !resolvedToken.isBlank()) {
+            return graphApiClient.getFormName(formId, resolvedToken);
+        }
+        return graphApiClient.getFormName(formId);
     }
 
     private Mono<Lead> saveLead(

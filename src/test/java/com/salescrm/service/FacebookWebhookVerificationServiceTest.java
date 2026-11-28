@@ -81,4 +81,25 @@ class FacebookWebhookVerificationServiceTest {
         assertThat(service.verifySignature(null, payloadBytes)).isFalse();
         assertThat(service.verifySignature("malformed_signature_without_prefix", payloadBytes)).isFalse();
     }
+
+    @Test
+    void shouldVerifySecondaryAccountTokenAndSignature() throws Exception {
+        FacebookProperties.MetaAccountConfig team2 = new FacebookProperties.MetaAccountConfig();
+        team2.setName("team2");
+        team2.setAppSecret("team2_app_secret_987654");
+        team2.setVerifyToken("team2_verify_token_abc");
+        team2.setPageId("103160805770841");
+        properties.setAccounts(java.util.List.of(team2));
+
+        assertThat(service.verifySubscriptionToken("subscribe", "team2_verify_token_abc")).isTrue();
+
+        String payload = "{\"object\":\"page\",\"entry\":[{\"id\":\"103160805770841\"}]}";
+        byte[] payloadBytes = payload.getBytes(StandardCharsets.UTF_8);
+
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec("team2_app_secret_987654".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        String hash = HexFormat.of().formatHex(mac.doFinal(payloadBytes));
+
+        assertThat(service.verifySignature("sha256=" + hash, payloadBytes)).isTrue();
+    }
 }

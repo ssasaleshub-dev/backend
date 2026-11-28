@@ -65,8 +65,9 @@ public class FacebookProperties {
         if (pageId == null || pageId.isBlank() || accounts == null) {
             return null;
         }
+        String targetPageId = pageId.trim();
         for (MetaAccountConfig account : accounts) {
-            if (account != null && pageId.trim().equals(account.getPageId() != null ? account.getPageId().trim() : null)) {
+            if (account != null && account.matchesPageId(targetPageId)) {
                 return account;
             }
         }
@@ -81,7 +82,7 @@ public class FacebookProperties {
         if (match != null && match.getPageAccessToken() != null && !match.getPageAccessToken().isBlank()) {
             return match.getPageAccessToken().trim();
         }
-        return pageAccessToken;
+        return pageAccessToken != null ? pageAccessToken.trim() : null;
     }
 
     public static class MetaAccountConfig {
@@ -90,9 +91,31 @@ public class FacebookProperties {
         private String appSecret;
         private String verifyToken;
         private String pageId;
+        private List<String> pageIds = new ArrayList<>();
         private String pageAccessToken;
         private List<String> allowedCampaignIds = new ArrayList<>();
         private List<String> allowedFormIds = new ArrayList<>();
+
+        public boolean matchesPageId(String targetPageId) {
+            if (targetPageId == null || targetPageId.isBlank()) {
+                return false;
+            }
+            if (pageId != null && !pageId.isBlank()) {
+                for (String id : pageId.split(",")) {
+                    if (targetPageId.equals(id.trim())) {
+                        return true;
+                    }
+                }
+            }
+            if (pageIds != null) {
+                for (String id : pageIds) {
+                    if (id != null && targetPageId.equals(id.trim())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
         public String getName() {
             return name;
@@ -132,6 +155,14 @@ public class FacebookProperties {
 
         public void setPageId(String pageId) {
             this.pageId = pageId;
+        }
+
+        public List<String> getPageIds() {
+            return pageIds;
+        }
+
+        public void setPageIds(List<String> pageIds) {
+            this.pageIds = pageIds != null ? pageIds : new ArrayList<>();
         }
 
         public String getPageAccessToken() {

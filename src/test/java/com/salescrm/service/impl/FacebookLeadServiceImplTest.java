@@ -182,4 +182,77 @@ class FacebookLeadServiceImplTest {
         // Page ID and the raw form answers are kept on the lead
         verify(leadRepository).save(org.mockito.ArgumentMatchers.argThat(lead -> "page_123".equals(lead.getMetaPageId())));
     }
+
+    @Test
+    void shouldUseSecondaryAccountPageAccessTokenForLeadAndFormLookup() {
+        com.salescrm.config.FacebookProperties props = new com.salescrm.config.FacebookProperties();
+        props.setPageAccessToken("primary_token");
+        com.salescrm.config.FacebookProperties.MetaAccountConfig team2 = new com.salescrm.config.FacebookProperties.MetaAccountConfig();
+        team2.setName("team2");
+        team2.setPageId("103160805770841");
+        team2.setPageAccessToken("team2_page_token");
+        props.setAccounts(List.of(team2));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "facebookProperties", props);
+
+        String leadgenId = "12020000000099";
+        when(leadRepository.findByExternalId(leadgenId)).thenReturn(Mono.empty());
+
+        FacebookLeadGraphResponseDTO graphResponse = new FacebookLeadGraphResponseDTO();
+        graphResponse.setId(leadgenId);
+        graphResponse.setCreatedTime("2026-11-14T12:00:00+0000");
+        graphResponse.setCampaignId("c_201");
+        graphResponse.setAdsetId("as_202");
+        graphResponse.setAdId("ad_203");
+        graphResponse.setFormId("f_204");
+        graphResponse.setIsOrganic(false);
+        graphResponse.setPlatform("fb");
+        graphResponse.setFieldData(List.of(
+            new FacebookFieldDataDTO("full_name", List.of("Arun Kumar")),
+            new FacebookFieldDataDTO("phone_number", List.of("+919876543210"))
+        ));
+
+        when(graphApiClient.getLeadDetails(leadgenId, "team2_page_token")).thenReturn(Mono.just(graphResponse));
+        when(graphApiClient.getFormName("f_204", "team2_page_token")).thenReturn(Mono.just("Team 2 Form"));
+
+        Customer savedCustomer = new Customer();
+        savedCustomer.setId(2L);
+        when(customerRepository.findByPhoneNumber("+919876543210")).thenReturn(Mono.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(Mono.just(savedCustomer));
+
+        Campaign savedCampaign = new Campaign();
+        savedCampaign.setId(11L);
+        when(campaignRepository.findByExternalId("c_201")).thenReturn(Mono.empty());
+        when(campaignRepository.save(any(Campaign.class))).thenReturn(Mono.just(savedCampaign));
+
+        AdSet savedAdSet = new AdSet();
+        savedAdSet.setId(21L);
+        when(adSetRepository.findByExternalId("as_202")).thenReturn(Mono.empty());
+        when(adSetRepository.save(any(AdSet.class))).thenReturn(Mono.just(savedAdSet));
+
+        Ad savedAd = new Ad();
+        savedAd.setId(31L);
+        when(adRepository.findByExternalId("ad_203")).thenReturn(Mono.empty());
+        when(adRepository.save(any(Ad.class))).thenReturn(Mono.just(savedAd));
+
+        LeadForm savedLeadForm = new LeadForm();
+        savedLeadForm.setId(41L);
+        when(leadFormRepository.findByExternalId("f_204")).thenReturn(Mono.empty());
+        when(leadFormRepository.save(any(LeadForm.class))).thenReturn(Mono.just(savedLeadForm));
+
+        Lead savedLead = new Lead();
+        savedLead.setId(501L);
+        savedLead.setExternalId(leadgenId);
+        savedLead.setCustomer(savedCustomer);
+        when(leadRepository.save(any(Lead.class))).thenReturn(Mono.just(savedLead));
+        when(leadPreferenceRepository.findOneByLeadId(501L)).thenReturn(Mono.empty());
+        when(leadPreferenceRepository.save(any(LeadPreference.class))).thenReturn(Mono.just(new LeadPreference()));
+        when(leadActivityService.logActivity(any())).thenReturn(Mono.empty());
+
+        Lead result = service.processLead(leadgenId, "103160805770841", "ad_203", "f_204").block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(501L);
+        verify(graphApiClient).getLeadDetails(leadgenId, "team2_page_token");
+        verify(graphApiClient).getFormName("f_204", "team2_page_token");
+    }
 }
